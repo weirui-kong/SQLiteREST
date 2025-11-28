@@ -8,8 +8,8 @@
 
 Pod::Spec.new do |s|
   s.name             = 'SQLiteREST'
-  s.version          = '0.1.0'
-  s.summary          = 'A short description of SQLiteREST.'
+  s.version          = '0.0.1'
+  s.summary          = 'A lightweight RESTful service for SQLite databases running on iOS devices. '
 
 # This description is used to generate tags and improve search results.
 #   * Think: What does it do? Why did you write it? What is the focus?
@@ -17,15 +17,13 @@ Pod::Spec.new do |s|
 #   * Write the description between the DESC delimiters below.
 #   * Finally, don't worry about the indent, CocoaPods strips it!
 
-  s.description      = <<-DESC
-TODO: Add long description of the pod here.
-                       DESC
+  s.description      = 'A lightweight RESTful service for SQLite databases running on iOS devices. SQLiteREST provides a simple web UI that allows you to view and edit your SQLite database in real-time, making it extremely convenient for development and QA testing. No more manually exporting sandbox files to troubleshoot issues!'
 
-  s.homepage         = 'https://github.com/Weirui Kong/SQLiteREST'
+  s.homepage         = 'https://github.com/weirui-kong/SQLiteREST'
   # s.screenshots     = 'www.example.com/screenshots_1', 'www.example.com/screenshots_2'
   s.license          = { :type => 'MIT', :file => 'LICENSE' }
   s.author           = { 'Weirui Kong' => 'weiruik@outlook.com' }
-  s.source           = { :git => 'https://github.com/Weirui Kong/SQLiteREST.git', :tag => s.version.to_s }
+  s.source           = { :git => 'https://github.com/weirui-kong/SQLiteREST.git', :tag => s.version.to_s }
   # s.social_media_url = 'https://twitter.com/<TWITTER_USERNAME>'
 
   s.ios.deployment_target = '13.0'
