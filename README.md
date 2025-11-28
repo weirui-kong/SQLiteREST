@@ -1,6 +1,5 @@
 # SQLiteREST
 
-[![CI Status](https://img.shields.io/travis/Weirui Kong/SQLiteREST.svg?style=flat)](https://travis-ci.org/Weirui Kong/SQLiteREST)
 [![Version](https://img.shields.io/cocoapods/v/SQLiteREST.svg?style=flat)](https://cocoapods.org/pods/SQLiteREST)
 [![License](https://img.shields.io/cocoapods/l/SQLiteREST.svg?style=flat)](https://cocoapods.org/pods/SQLiteREST)
 [![Platform](https://img.shields.io/cocoapods/p/SQLiteREST.svg?style=flat)](https://cocoapods.org/pods/SQLiteREST)

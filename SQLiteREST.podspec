@@ -10,6 +10,8 @@ Pod::Spec.new do |s|
   s.name             = 'SQLiteREST'
   s.version          = '0.0.1'
   s.summary          = 'A lightweight RESTful service for SQLite databases running on iOS devices. '
+  s.swift_version = '5.0'
+  s.platform = :ios, '13.0'
 
 # This description is used to generate tags and improve search results.
 #   * Think: What does it do? Why did you write it? What is the focus?
