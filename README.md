@@ -24,6 +24,21 @@ A lightweight RESTful service for SQLite databases running on iOS devices. SQLit
 - Xcode 12.0+
 - CocoaPods 1.10.0+
 
+## UI
+
+<table>
+  <tr>
+    <td style="text-align:center;">
+      <img src="./demo_app.png" style="height:400px; object-fit:contain;" />
+      <br/>App
+    </td>
+    <td style="text-align:center;">
+      <img src="./demo_ui.png" style="height:400px; object-fit:contain;" />
+      <br/>Web UI
+    </td>
+  </tr>
+</table>
+
 ## Installation
 
 SQLiteREST is available through [CocoaPods](https://cocoapods.org). To install it, simply add the following line to your `Podfile`:
