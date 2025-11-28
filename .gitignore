@@ -1,5 +1,9 @@
 # macOS
 .DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
 
 # Xcode
 build/
@@ -17,20 +21,66 @@ xcuserdata/
 DerivedData
 *.hmap
 *.ipa
+*.xcuserstate
+*.xcuserdatad
+*.xcscmblueprint
+# User-specific schemes are already ignored via xcuserdata/
+# Shared schemes in xcshareddata/xcschemes/ should be committed
+# Workspace files should be committed, but user data should be ignored
+*.xcworkspace/xcuserdata/
+*.xcworkspace/xcshareddata/swiftpm/
+*.playground
+timeline.xctimeline
+playground.xcworkspace
+
+# CocoaPods
+# For library projects, Pods/ should be ignored
+# Users can regenerate it by running `pod install`
+Pods/
+Example/Pods/
+Example/Podfile.lock
+*.podspec.json
+!SQLiteREST.podspec
+
+# Carthage
+# Add this line if you want to avoid checking in source code from Carthage dependencies.
+# Carthage/Checkouts
+Carthage/Build
 
 # Bundler
 .bundle
 
-# Add this line if you want to avoid checking in source code from Carthage dependencies.
-# Carthage/Checkouts
+# Swift Package Manager
+.swiftpm/
+.build/
+Package.resolved
+*.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/
 
-Carthage/Build
+# Editor directories and files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+*.sublime-project
+*.sublime-workspace
 
-# We recommend against adding the Pods directory to your .gitignore. However
-# you should judge for yourself, the pros and cons are mentioned at:
-# https://guides.cocoapods.org/using/using-cocoapods.html#should-i-ignore-the-pods-directory-in-source-control
-# 
-# Note: if you ignore the Pods directory, make sure to uncomment
-# `pod install` in .travis.yml
-#
-# Pods/
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.png
+fastlane/test_output
+
+# Code Injection
+iOSInjectionProject/
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+*.orig
+*.rej
+
+# App packaging
+*.dSYM.zip
+*.dSYM

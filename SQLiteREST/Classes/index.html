@@ -1,0 +1,996 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>SQLite REST</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+        }
+        
+        /* 左侧边栏 */
+        .sidebar {
+            width: 250px;
+            background: #f5f5f5;
+            border-right: 1px solid #ddd;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .sidebar-header {
+            padding: 20px;
+            background: #007bff;
+            color: white;
+        }
+        
+        .sidebar-header h1 {
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+        
+        .sidebar-header button {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        
+        .sidebar-header button:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+        
+        .table-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+        }
+        
+        .table-item {
+            padding: 12px;
+            margin: 5px 0;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .table-item:hover {
+            background: #e9ecef;
+            border-color: #007bff;
+        }
+        
+        .table-item.active {
+            background: #007bff;
+            color: white;
+            border-color: #0056b3;
+        }
+        
+        .table-item .table-name {
+            font-weight: 500;
+        }
+        
+        .table-item .table-type {
+            font-size: 11px;
+            opacity: 0.7;
+            margin-top: 4px;
+        }
+        
+        /* 右侧工作区 */
+        .workspace {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .workspace-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+        }
+        
+        .section {
+            margin-bottom: 30px;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+        }
+        
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #333;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 8px;
+        }
+        
+        /* 表元信息 */
+        .table-meta {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .meta-item {
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+        
+        .meta-label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 4px;
+        }
+        
+        .meta-value {
+            font-size: 14px;
+            font-weight: 500;
+            color: #333;
+        }
+        
+        /* 字段信息表格 */
+        .columns-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        
+        .columns-table th {
+            background: #007bff;
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 13px;
+        }
+        
+        .columns-table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #e9ecef;
+            font-size: 13px;
+        }
+        
+        .columns-table tr:hover {
+            background: #f8f9fa;
+        }
+        
+        .columns-table tr:last-child td {
+            border-bottom: none;
+        }
+        
+        .column-name {
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .column-type {
+            color: #007bff;
+            font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+            font-size: 12px;
+        }
+        
+        .column-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 500;
+            margin-right: 5px;
+        }
+        
+        .badge-pk {
+            background: #ffc107;
+            color: #333;
+        }
+        
+        .badge-notnull {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .badge-default {
+            background: #28a745;
+            color: white;
+        }
+        
+        .column-default-value {
+            font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .column-default-null {
+            color: #999;
+            font-style: italic;
+        }
+        
+        .warning {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            padding: 12px;
+            border-radius: 4px;
+            margin-top: 10px;
+            display: none;
+        }
+        
+        /* 过滤器 */
+        .filter-section {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .filter-section input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .filter-section button {
+            padding: 10px 20px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .filter-section button:hover {
+            background: #0056b3;
+        }
+        
+        /* 插入新行 */
+        .insert-form {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+        }
+        
+        .form-field {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .form-field label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        
+        .form-field input {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .insert-actions {
+            margin-top: 15px;
+        }
+        
+        .insert-actions button {
+            padding: 10px 20px;
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .insert-actions button:hover {
+            background: #218838;
+        }
+        
+        /* 表内容 */
+        .table-container {
+            overflow-x: auto;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        
+        th, td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+        }
+        
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+        }
+        
+        tr:hover {
+            background: #f8f9fa;
+        }
+        
+        tr.editing {
+            background: #fff9e6;
+        }
+        
+        tr.editing td {
+            padding: 5px;
+        }
+        
+        .editable-cell {
+            width: 100%;
+            min-width: 150px;
+            padding: 8px;
+            border: 1px solid #007bff;
+            border-radius: 4px;
+            font-size: 14px;
+            font-family: inherit;
+            resize: vertical;
+            min-height: 60px;
+            line-height: 1.5;
+        }
+        
+        .editable-cell:focus {
+            outline: none;
+            border-color: #0056b3;
+            box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+        }
+        
+        .readonly-cell {
+            background: #f8f9fa;
+            color: #666;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 5px;
+        }
+        
+        .action-buttons button {
+            padding: 5px 10px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        
+        .btn-edit {
+            background: #ffc107;
+            color: #333;
+        }
+        
+        .btn-edit:hover {
+            background: #e0a800;
+        }
+        
+        .btn-save {
+            background: #28a745;
+            color: white;
+        }
+        
+        .btn-save:hover {
+            background: #218838;
+        }
+        
+        .btn-cancel {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn-cancel:hover {
+            background: #5a6268;
+        }
+        
+        .btn-delete {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .btn-delete:hover {
+            background: #c82333;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+        
+        /* 模态框 */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+        
+        .modal-header {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #333;
+        }
+        
+        .modal-body {
+            margin-bottom: 20px;
+            color: #666;
+            line-height: 1.5;
+        }
+        
+        .modal-footer {
+            text-align: right;
+        }
+        
+        .modal-footer button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-left: 10px;
+        }
+        
+        .btn-primary {
+            background: #007bff;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #0056b3;
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+        
+        .modal.error .modal-header {
+            color: #dc3545;
+        }
+        
+        .modal.success .modal-header {
+            color: #28a745;
+        }
+    </style>
+</head>
+<body>
+    <!-- 左侧边栏 -->
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <h1>SQLite REST</h1>
+            <button onclick="loadTables()">刷新</button>
+        </div>
+        <div class="table-list" id="tableList">
+            <div class="empty-state">加载中...</div>
+        </div>
+    </div>
+    
+    <!-- 右侧工作区 -->
+    <div class="workspace">
+        <div class="workspace-content" id="workspaceContent">
+            <div class="empty-state">请从左侧选择一个表或视图</div>
+        </div>
+    </div>
+    
+    <!-- 模态框 -->
+    <div class="modal" id="modal">
+        <div class="modal-content">
+            <div class="modal-header" id="modalHeader"></div>
+            <div class="modal-body" id="modalBody"></div>
+            <div class="modal-footer">
+                <button class="btn-primary" onclick="closeModal()">确定</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let tables = [];
+        let currentTable = null;
+        let currentRows = [];
+        let currentColumns = [];
+        let editingRowIdx = null; // 正在编辑的行索引
+        
+        // 检查表是否可以编辑（必须有 rowid 且不是视图）
+        function canEditTable() {
+            return currentTable && 
+                   currentTable.hasRowId && 
+                   currentTable.type !== 'view';
+        }
+
+        async function loadTables() {
+            try {
+                const res = await fetch('/api/tables');
+                const data = await res.json();
+                if (data.ok) {
+                    tables = data.data;
+                    renderTableList();
+                } else {
+                    showModal('错误', '加载表列表失败: ' + data.error, 'error');
+                }
+            } catch (e) {
+                showModal('错误', '加载表列表失败: ' + e.message, 'error');
+            }
+        }
+
+        function renderTableList() {
+            const container = document.getElementById('tableList');
+            if (tables.length === 0) {
+                container.innerHTML = '<div class="empty-state">没有找到表或视图</div>';
+                return;
+            }
+            
+            container.innerHTML = tables.map(table => `
+                <div class="table-item" onclick="selectTable('${table.name}')">
+                    <div class="table-name">${escapeHtml(table.name)}</div>
+                    <div class="table-type">${table.type === 'view' ? '视图' : '表'}</div>
+                </div>
+            `).join('');
+        }
+
+        function selectTable(tableName) {
+            const table = tables.find(t => t.name === tableName);
+            if (!table) return;
+            
+            currentTable = table;
+            
+            // 更新选中状态
+            document.querySelectorAll('.table-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            event.currentTarget.classList.add('active');
+            
+            renderWorkspace();
+        }
+
+        function renderWorkspace() {
+            if (!currentTable) return;
+            
+            const container = document.getElementById('workspaceContent');
+            container.innerHTML = `
+                <!-- 表元信息 -->
+                <div class="section">
+                    <div class="section-title">表元信息</div>
+                    <div class="table-meta">
+                        <div class="meta-item">
+                            <div class="meta-label">表名</div>
+                            <div class="meta-value">${escapeHtml(currentTable.name)}</div>
+                        </div>
+                        <div class="meta-item">
+                            <div class="meta-label">类型</div>
+                            <div class="meta-value">${currentTable.type === 'view' ? '视图' : '表'}</div>
+                        </div>
+                        <div class="meta-item">
+                            <div class="meta-label">列数</div>
+                            <div class="meta-value">${currentTable.columns ? currentTable.columns.length : 0}</div>
+                        </div>
+                        <div class="meta-item">
+                            <div class="meta-label">主键</div>
+                            <div class="meta-value">${currentTable.primaryKey && currentTable.primaryKey.length > 0 ? currentTable.primaryKey.join(', ') : '无'}</div>
+                        </div>
+                        <div class="meta-item">
+                            <div class="meta-label">支持 ROWID</div>
+                            <div class="meta-value">${currentTable.hasRowId ? '是' : '否'}</div>
+                        </div>
+                    </div>
+                    ${currentTable.columns && currentTable.columns.length > 0 ? `
+                    <table class="columns-table">
+                        <thead>
+                            <tr>
+                                <th>字段名</th>
+                                <th>类型</th>
+                                <th>配置</th>
+                                <th>默认值</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${currentTable.columns.map(col => {
+                                const badges = [];
+                                const pk = col.pk !== undefined ? (typeof col.pk === 'number' ? col.pk : parseInt(col.pk) || 0) : 0;
+                                const notnull = col.notnull !== undefined ? (typeof col.notnull === 'number' ? col.notnull : parseInt(col.notnull) || 0) : 0;
+                                
+                                if (pk > 0) {
+                                    badges.push('<span class="column-badge badge-pk">主键</span>');
+                                }
+                                if (notnull > 0) {
+                                    badges.push('<span class="column-badge badge-notnull">非空</span>');
+                                }
+                                
+                                let defaultDisplay = '<span class="column-default-null">NULL</span>';
+                                if (col.default !== null && col.default !== undefined && col.default !== 'null' && String(col.default).toLowerCase() !== 'null') {
+                                    defaultDisplay = `<span class="column-default-value">${escapeHtml(String(col.default))}</span>`;
+                                }
+                                
+                                return `
+                                    <tr>
+                                        <td class="column-name">${escapeHtml(col.name)}</td>
+                                        <td class="column-type">${escapeHtml(col.type || 'TEXT')}</td>
+                                        <td>${badges.join('') || '<span style="color: #999;">-</span>'}</td>
+                                        <td>${defaultDisplay}</td>
+                                    </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                    ` : ''}
+                    <div class="warning" id="warning" style="display:${canEditTable() ? 'none' : 'block'}">
+                        ⚠️ ${currentTable.type === 'view' ? '视图只能查看数据，无法修改。' : '此表不支持 ROWID，只能查看数据，无法修改。'}
+                    </div>
+                </div>
+                
+                <!-- 过滤器 -->
+                <div class="section">
+                    <div class="section-title">过滤器</div>
+                    <div class="filter-section">
+                        <input type="text" id="filter" placeholder="例如: age > 18 AND name LIKE '%John%'">
+                        <button onclick="loadRows()">加载数据</button>
+                    </div>
+                </div>
+                
+                <!-- 插入新行 -->
+                ${canEditTable() ? `
+                <div class="section">
+                    <div class="section-title">插入新行</div>
+                    <div class="insert-form" id="insertForm"></div>
+                    <div class="insert-actions">
+                        <button onclick="insertRow()">插入</button>
+                    </div>
+                </div>
+                ` : ''}
+                
+                <!-- 表内容 -->
+                <div class="section">
+                    <div class="section-title">表内容</div>
+                    <div class="table-container" id="rowsContainer">
+                        <div class="empty-state">加载中...</div>
+                    </div>
+                </div>
+            `;
+            
+            if (canEditTable()) {
+                buildInsertForm();
+            }
+            
+            loadRows();
+        }
+
+        async function loadRows() {
+            if (!currentTable) return;
+            
+            const filterInput = document.getElementById('filter');
+            const filter = filterInput ? filterInput.value : '';
+            const container = document.getElementById('rowsContainer');
+            
+            if (container) {
+                container.innerHTML = '<div class="empty-state">加载中...</div>';
+            }
+            
+            try {
+                const body = filter ? { filter: filter } : {};
+                const res = await fetch(`/api/table/${currentTable.name}/rows`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                const data = await res.json();
+                if (data.ok) {
+                    currentColumns = data.data.columns;
+                    currentRows = data.data.rows;
+                    displayRows();
+                } else {
+                    showModal('错误', '加载数据失败: ' + data.error, 'error');
+                    if (container) {
+                        container.innerHTML = '<div class="empty-state">加载失败</div>';
+                    }
+                }
+            } catch (e) {
+                showModal('错误', '加载数据失败: ' + e.message, 'error');
+                if (container) {
+                    container.innerHTML = '<div class="empty-state">加载失败</div>';
+                }
+            }
+        }
+
+        function displayRows() {
+            const container = document.getElementById('rowsContainer');
+            if (!container) return;
+            
+            if (currentRows.length === 0) {
+                container.innerHTML = '<div class="empty-state">没有找到数据</div>';
+                return;
+            }
+            
+            let html = '<table><thead><tr>';
+            currentColumns.forEach(col => {
+                html += `<th>${escapeHtml(col)}</th>`;
+            });
+            if (canEditTable()) {
+                html += '<th>操作</th>';
+            }
+            html += '</tr></thead><tbody>';
+            
+            currentRows.forEach((row, idx) => {
+                const isEditing = editingRowIdx === idx;
+                html += `<tr class="${isEditing ? 'editing' : ''}">`;
+                
+                currentColumns.forEach((col, colIdx) => {
+                    const colName = col;
+                    const isPrimaryKey = currentTable.primaryKey && Array.isArray(currentTable.primaryKey) && currentTable.primaryKey.includes(colName);
+                    const cellValue = String(row[colIdx] ?? '');
+                    
+                    if (isEditing) {
+                        if (isPrimaryKey) {
+                            // 主键列显示为只读
+                            html += `<td><div class="readonly-cell">${escapeHtml(cellValue)}</div></td>`;
+                        } else {
+                            // 非主键列显示为可编辑的多行 textarea
+                            html += `<td><textarea class="editable-cell" id="edit_${idx}_${colIdx}" data-col="${escapeHtml(colName)}" rows="3">${escapeHtml(cellValue)}</textarea></td>`;
+                        }
+                    } else {
+                        html += `<td>${escapeHtml(cellValue)}</td>`;
+                    }
+                });
+                
+                if (canEditTable()) {
+                    if (isEditing) {
+                        html += `<td>
+                            <div class="action-buttons">
+                                <button class="btn-save" onclick="saveRow(${idx})">保存</button>
+                                <button class="btn-cancel" onclick="cancelEdit()">取消</button>
+                            </div>
+                        </td>`;
+                    } else {
+                        html += `<td>
+                            <div class="action-buttons">
+                                <button class="btn-edit" onclick="editRow(${idx})">编辑</button>
+                                <button class="btn-delete" onclick="deleteRow(${idx})">删除</button>
+                            </div>
+                        </td>`;
+                    }
+                }
+                html += '</tr>';
+            });
+            
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        }
+
+        function buildInsertForm() {
+            const form = document.getElementById('insertForm');
+            if (!form) return;
+            
+            form.innerHTML = '';
+            currentTable.columns.forEach(col => {
+                if (col.pk === 0) {
+                    const div = document.createElement('div');
+                    div.className = 'form-field';
+                    div.innerHTML = `
+                        <label>${escapeHtml(col.name)} (${col.type})</label>
+                        <input type="text" id="insert_${col.name}" placeholder="输入值">
+                    `;
+                    form.appendChild(div);
+                }
+            });
+        }
+
+        async function insertRow() {
+            if (!canEditTable()) return;
+            
+            const row = {};
+            currentTable.columns.forEach(col => {
+                if (col.pk === 0) {
+                    const input = document.getElementById(`insert_${col.name}`);
+                    if (input && input.value) {
+                        row[col.name] = input.value;
+                    }
+                }
+            });
+            
+            try {
+                const res = await fetch(`/api/table/${currentTable.name}/insert`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ row: row })
+                });
+                const data = await res.json();
+                if (data.ok) {
+                    showModal('成功', '行插入成功', 'success');
+                    loadRows();
+                    // 清空表单
+                    currentTable.columns.forEach(col => {
+                        if (col.pk === 0) {
+                            const input = document.getElementById(`insert_${col.name}`);
+                            if (input) input.value = '';
+                        }
+                    });
+                } else {
+                    showModal('错误', '插入失败: ' + data.error, 'error');
+                }
+            } catch (e) {
+                showModal('错误', '插入失败: ' + e.message, 'error');
+            }
+        }
+
+        function editRow(rowIdx) {
+            if (!canEditTable()) return;
+            
+            // 如果已经在编辑其他行，先取消
+            if (editingRowIdx !== null && editingRowIdx !== rowIdx) {
+                cancelEdit();
+            }
+            
+            editingRowIdx = rowIdx;
+            displayRows();
+        }
+        
+        function cancelEdit() {
+            if (editingRowIdx === null) return;
+            editingRowIdx = null;
+            displayRows();
+        }
+        
+        async function saveRow(rowIdx) {
+            if (!canEditTable()) return;
+            if (editingRowIdx !== rowIdx) return;
+            
+            const row = currentRows[rowIdx];
+            const primaryKey = {};
+            if (currentTable.primaryKey && Array.isArray(currentTable.primaryKey)) {
+                currentTable.primaryKey.forEach(pk => {
+                    const colIdx = currentColumns.indexOf(pk);
+                    if (colIdx >= 0) {
+                        primaryKey[pk] = row[colIdx];
+                    }
+                });
+            }
+            
+            // 从所有 textarea 中读取新值
+            const newValues = {};
+            currentColumns.forEach((colName, colIdx) => {
+                const isPrimaryKey = currentTable.primaryKey && Array.isArray(currentTable.primaryKey) && currentTable.primaryKey.includes(colName);
+                if (!isPrimaryKey) {
+                    const textarea = document.getElementById(`edit_${rowIdx}_${colIdx}`);
+                    if (textarea) {
+                        newValues[colName] = textarea.value;
+                    }
+                }
+            });
+            
+            // 调用更新 API
+            await updateRow(primaryKey, newValues);
+        }
+
+        async function updateRow(primaryKey, newValues) {
+            if (!canEditTable()) return;
+            
+            try {
+                const res = await fetch(`/api/table/${currentTable.name}/update`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ primaryKey: primaryKey, newValues: newValues })
+                });
+                const data = await res.json();
+                if (data.ok) {
+                    editingRowIdx = null; // 清除编辑状态
+                    showModal('成功', '行更新成功', 'success');
+                    loadRows();
+                } else {
+                    showModal('错误', '更新失败: ' + data.error, 'error');
+                }
+            } catch (e) {
+                showModal('错误', '更新失败: ' + e.message, 'error');
+            }
+        }
+
+        async function deleteRow(rowIdx) {
+            if (!canEditTable()) return;
+            
+            if (!confirm('确定要删除这一行吗？')) return;
+            
+            const row = currentRows[rowIdx];
+            const primaryKey = {};
+            if (currentTable.primaryKey && Array.isArray(currentTable.primaryKey)) {
+                currentTable.primaryKey.forEach(pk => {
+                    const colIdx = currentColumns.indexOf(pk);
+                    if (colIdx >= 0) {
+                        primaryKey[pk] = row[colIdx];
+                    }
+                });
+            }
+            
+            try {
+                const res = await fetch(`/api/table/${currentTable.name}/delete`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ primaryKey: primaryKey })
+                });
+                const data = await res.json();
+                if (data.ok) {
+                    showModal('成功', '行删除成功', 'success');
+                    loadRows();
+                } else {
+                    showModal('错误', '删除失败: ' + data.error, 'error');
+                }
+            } catch (e) {
+                showModal('错误', '删除失败: ' + e.message, 'error');
+            }
+        }
+
+        function showModal(title, message, type = '') {
+            const modal = document.getElementById('modal');
+            const header = document.getElementById('modalHeader');
+            const body = document.getElementById('modalBody');
+            
+            modal.className = 'modal ' + type;
+            header.textContent = title;
+            body.textContent = message;
+            modal.style.display = 'flex';
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('modal');
+            modal.style.display = 'none';
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // 点击模态框外部关闭
+        document.getElementById('modal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeModal();
+            }
+        });
+
+        // 初始化加载
+        loadTables();
+    </script>
+</body>
+</html>
+
