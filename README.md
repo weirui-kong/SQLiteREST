@@ -28,11 +28,11 @@ A lightweight RESTful service for SQLite databases running on iOS devices. SQLit
 <table>
   <tr>
     <td style="text-align:center;">
-      <img src="./demo_app.png" style="height:400px; object-fit:contain;" />
+      <img src="https://cdn.jsdelivr.net/gh/weirui-kong/SQLiteREST@main/demo_app.png" style="height:400px; object-fit:contain;" />
       <br/>App
     </td>
     <td style="text-align:center;">
-      <img src="./demo_ui.png" style="height:400px; object-fit:contain;" />
+      <img src="https://cdn.jsdelivr.net/gh/weirui-kong/SQLiteREST@main/demo_ui.png" style="height:400px; object-fit:contain;" />
       <br/>Web UI
     </td>
   </tr>
