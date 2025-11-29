@@ -607,6 +607,12 @@
 #pragma mark - Public Methods
 
 - (void)startServerOnPort:(NSUInteger)port withPath:(NSString *)path {
+    // 如果服务器已经在运行，先停止它
+    if ([_webServer isRunning]) {
+        [self log:@"Server is already running, stopping it first"];
+        [_webServer stop];
+    }
+    
     self.databasePath = path;
     self.worker = [[SQLiteRESTWorker alloc] initWithDatabasePath:path];
     self.worker.logHandler = self.logHandler;
@@ -626,6 +632,10 @@
 }
 
 - (void)stop {
+    if (![_webServer isRunning]) {
+        [self log:@"SQLiteREST server is not running"];
+        return;
+    }
     [_webServer stop];
     [self log:@"SQLiteREST server stopped"];
 }

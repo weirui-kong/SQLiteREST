@@ -63,8 +63,9 @@ class ViewController: UIViewController {
         
         appendLog("Starting server on port \(defaultPort)...")
         appendLog("Database: \(databasePath)")
-        
+        server.stop()
         // Start server
+        server.start(onPort: defaultPort, withPath: databasePath)
         server.start(onPort: defaultPort, withPath: databasePath)
     }
     
