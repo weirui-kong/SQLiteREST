@@ -700,5 +700,280 @@
     return [NSString stringWithFormat:@"\"%@\"", [identifier stringByReplacingOccurrencesOfString:@"\"" withString:@"\"\""]];
 }
 
+#pragma mark - Database Info
+
+- (void)getDatabaseInfoWithCompletion:(SQLiteRESTWorkerCompletionBlock)completion {
+    dispatch_async(self.databaseQueue, ^{
+        NSMutableDictionary *info = [NSMutableDictionary dictionary];
+        
+        // File information
+        NSFileManager *fileManager = [NSFileManager defaultManager];
+        if ([fileManager fileExistsAtPath:self.databasePath]) {
+            info[@"path"] = self.databasePath;
+            
+            // Get file attributes
+            NSError *error = nil;
+            NSDictionary *attributes = [fileManager attributesOfItemAtPath:self.databasePath error:&error];
+            if (attributes) {
+                NSNumber *fileSize = attributes[NSFileSize];
+                if (fileSize) {
+                    info[@"fileSize"] = fileSize;
+                    info[@"fileSizeFormatted"] = [self formatFileSize:[fileSize unsignedLongLongValue]];
+                }
+                
+                NSDate *modificationDate = attributes[NSFileModificationDate];
+                if (modificationDate) {
+                    NSDateFormatter *formatter = [[NSDateFormatter alloc] init];
+                    formatter.dateStyle = NSDateFormatterMediumStyle;
+                    formatter.timeStyle = NSDateFormatterMediumStyle;
+                    formatter.locale = [NSLocale localeWithLocaleIdentifier:@"en_US_POSIX"];
+                    info[@"lastModified"] = [formatter stringFromDate:modificationDate];
+                }
+            }
+        }
+        
+        // Open database to get SQLite information
+        sqlite3 *db = [self openDatabase];
+        if (!db) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                completion(NO, info, @"Failed to open database", @"DATABASE_ERROR");
+            });
+            return;
+        }
+        
+        // SQLite version
+        const char *sqliteVersion = sqlite3_libversion();
+        if (sqliteVersion) {
+            info[@"sqliteVersion"] = [NSString stringWithUTF8String:sqliteVersion];
+        }
+        
+        // Database encoding
+        sqlite3_stmt *stmt = NULL;
+        if (sqlite3_prepare_v2(db, "PRAGMA encoding", -1, &stmt, NULL) == SQLITE_OK) {
+            if (sqlite3_step(stmt) == SQLITE_ROW) {
+                const char *encoding = (const char *)sqlite3_column_text(stmt, 0);
+                if (encoding) {
+                    info[@"encoding"] = [NSString stringWithUTF8String:encoding];
+                }
+            }
+            sqlite3_finalize(stmt);
+        }
+        
+        // Page size
+        stmt = NULL;
+        if (sqlite3_prepare_v2(db, "PRAGMA page_size", -1, &stmt, NULL) == SQLITE_OK) {
+            if (sqlite3_step(stmt) == SQLITE_ROW) {
+                int pageSize = sqlite3_column_int(stmt, 0);
+                info[@"pageSize"] = @(pageSize);
+            }
+            sqlite3_finalize(stmt);
+        }
+        
+        // Page count
+        stmt = NULL;
+        if (sqlite3_prepare_v2(db, "PRAGMA page_count", -1, &stmt, NULL) == SQLITE_OK) {
+            if (sqlite3_step(stmt) == SQLITE_ROW) {
+                int pageCount = sqlite3_column_int(stmt, 0);
+                info[@"pageCount"] = @(pageCount);
+            }
+            sqlite3_finalize(stmt);
+        }
+        
+        // User version
+        stmt = NULL;
+        if (sqlite3_prepare_v2(db, "PRAGMA user_version", -1, &stmt, NULL) == SQLITE_OK) {
+            if (sqlite3_step(stmt) == SQLITE_ROW) {
+                int userVersion = sqlite3_column_int(stmt, 0);
+                info[@"userVersion"] = @(userVersion);
+            }
+            sqlite3_finalize(stmt);
+        }
+        
+        // Application ID
+        stmt = NULL;
+        if (sqlite3_prepare_v2(db, "PRAGMA application_id", -1, &stmt, NULL) == SQLITE_OK) {
+            if (sqlite3_step(stmt) == SQLITE_ROW) {
+                int appId = sqlite3_column_int(stmt, 0);
+                info[@"applicationId"] = @(appId);
+            }
+            sqlite3_finalize(stmt);
+        }
+        
+        // Auto vacuum
+        stmt = NULL;
+        if (sqlite3_prepare_v2(db, "PRAGMA auto_vacuum", -1, &stmt, NULL) == SQLITE_OK) {
+            if (sqlite3_step(stmt) == SQLITE_ROW) {
+                int autoVacuum = sqlite3_column_int(stmt, 0);
+                NSString *autoVacuumStr = @"None";
+                if (autoVacuum == 1) {
+                    autoVacuumStr = @"Full";
+                } else if (autoVacuum == 2) {
+                    autoVacuumStr = @"Incremental";
+                }
+                info[@"autoVacuum"] = autoVacuumStr;
+            }
+            sqlite3_finalize(stmt);
+        }
+        
+        // Foreign keys
+        stmt = NULL;
+        if (sqlite3_prepare_v2(db, "PRAGMA foreign_keys", -1, &stmt, NULL) == SQLITE_OK) {
+            if (sqlite3_step(stmt) == SQLITE_ROW) {
+                int foreignKeys = sqlite3_column_int(stmt, 0);
+                info[@"foreignKeys"] = @(foreignKeys == 1);
+            }
+            sqlite3_finalize(stmt);
+        }
+        
+        // Journal mode
+        stmt = NULL;
+        if (sqlite3_prepare_v2(db, "PRAGMA journal_mode", -1, &stmt, NULL) == SQLITE_OK) {
+            if (sqlite3_step(stmt) == SQLITE_ROW) {
+                const char *journalMode = (const char *)sqlite3_column_text(stmt, 0);
+                if (journalMode) {
+                    info[@"journalMode"] = [NSString stringWithUTF8String:journalMode];
+                }
+            }
+            sqlite3_finalize(stmt);
+        }
+        
+        // Synchronous mode
+        stmt = NULL;
+        if (sqlite3_prepare_v2(db, "PRAGMA synchronous", -1, &stmt, NULL) == SQLITE_OK) {
+            if (sqlite3_step(stmt) == SQLITE_ROW) {
+                int synchronous = sqlite3_column_int(stmt, 0);
+                NSString *syncStr = @"Unknown";
+                if (synchronous == 0) {
+                    syncStr = @"OFF";
+                } else if (synchronous == 1) {
+                    syncStr = @"NORMAL";
+                } else if (synchronous == 2) {
+                    syncStr = @"FULL";
+                } else if (synchronous == 3) {
+                    syncStr = @"EXTRA";
+                }
+                info[@"synchronous"] = syncStr;
+            }
+            sqlite3_finalize(stmt);
+        }
+        
+        // Cache size
+        stmt = NULL;
+        if (sqlite3_prepare_v2(db, "PRAGMA cache_size", -1, &stmt, NULL) == SQLITE_OK) {
+            if (sqlite3_step(stmt) == SQLITE_ROW) {
+                int cacheSize = sqlite3_column_int(stmt, 0);
+                info[@"cacheSize"] = @(cacheSize);
+            }
+            sqlite3_finalize(stmt);
+        }
+        
+        // Temp store
+        stmt = NULL;
+        if (sqlite3_prepare_v2(db, "PRAGMA temp_store", -1, &stmt, NULL) == SQLITE_OK) {
+            if (sqlite3_step(stmt) == SQLITE_ROW) {
+                int tempStore = sqlite3_column_int(stmt, 0);
+                NSString *tempStoreStr = @"Default";
+                if (tempStore == 1) {
+                    tempStoreStr = @"File";
+                } else if (tempStore == 2) {
+                    tempStoreStr = @"Memory";
+                }
+                info[@"tempStore"] = tempStoreStr;
+            }
+            sqlite3_finalize(stmt);
+        }
+        
+        // Count tables, indexes, triggers, views
+        stmt = NULL;
+        NSString *countSQL = @"SELECT type, COUNT(*) FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' GROUP BY type";
+        if (sqlite3_prepare_v2(db, [countSQL UTF8String], -1, &stmt, NULL) == SQLITE_OK) {
+            int tableCount = 0;
+            int indexCount = 0;
+            int triggerCount = 0;
+            int viewCount = 0;
+            
+            while (sqlite3_step(stmt) == SQLITE_ROW) {
+                const char *type = (const char *)sqlite3_column_text(stmt, 0);
+                int count = sqlite3_column_int(stmt, 1);
+                
+                if (type) {
+                    NSString *typeStr = [NSString stringWithUTF8String:type];
+                    if ([typeStr isEqualToString:@"table"]) {
+                        tableCount = count;
+                    } else if ([typeStr isEqualToString:@"index"]) {
+                        indexCount = count;
+                    } else if ([typeStr isEqualToString:@"trigger"]) {
+                        triggerCount = count;
+                    } else if ([typeStr isEqualToString:@"view"]) {
+                        viewCount = count;
+                    }
+                }
+            }
+            
+            info[@"tableCount"] = @(tableCount);
+            info[@"indexCount"] = @(indexCount);
+            info[@"triggerCount"] = @(triggerCount);
+            info[@"viewCount"] = @(viewCount);
+            
+            sqlite3_finalize(stmt);
+        }
+        
+        // Integrity check
+        stmt = NULL;
+        if (sqlite3_prepare_v2(db, "PRAGMA integrity_check", -1, &stmt, NULL) == SQLITE_OK) {
+            if (sqlite3_step(stmt) == SQLITE_ROW) {
+                const char *result = (const char *)sqlite3_column_text(stmt, 0);
+                if (result) {
+                    NSString *checkResult = [NSString stringWithUTF8String:result];
+                    info[@"integrityCheck"] = checkResult;
+                    info[@"integrityOk"] = @([checkResult isEqualToString:@"ok"]);
+                }
+            }
+            sqlite3_finalize(stmt);
+        }
+        
+        // Quick check
+        stmt = NULL;
+        if (sqlite3_prepare_v2(db, "PRAGMA quick_check", -1, &stmt, NULL) == SQLITE_OK) {
+            if (sqlite3_step(stmt) == SQLITE_ROW) {
+                const char *result = (const char *)sqlite3_column_text(stmt, 0);
+                if (result) {
+                    NSString *checkResult = [NSString stringWithUTF8String:result];
+                    info[@"quickCheck"] = checkResult;
+                    info[@"quickCheckOk"] = @([checkResult isEqualToString:@"ok"]);
+                }
+            }
+            sqlite3_finalize(stmt);
+        }
+        
+        // Database size (calculated)
+        if (info[@"pageSize"] && info[@"pageCount"]) {
+            NSNumber *pageSize = info[@"pageSize"];
+            NSNumber *pageCount = info[@"pageCount"];
+            unsigned long long dbSize = [pageSize unsignedLongLongValue] * [pageCount unsignedLongLongValue];
+            info[@"databaseSize"] = @(dbSize);
+            info[@"databaseSizeFormatted"] = [self formatFileSize:dbSize];
+        }
+        
+        [self closeDatabase:db];
+        
+        dispatch_async(dispatch_get_main_queue(), ^{
+            completion(YES, info, nil, nil);
+        });
+    });
+}
+
+- (NSString *)formatFileSize:(unsigned long long)size {
+    if (size < 1024) {
+        return [NSString stringWithFormat:@"%llu B", size];
+    } else if (size < 1024 * 1024) {
+        return [NSString stringWithFormat:@"%.2f KB", size / 1024.0];
+    } else if (size < 1024 * 1024 * 1024) {
+        return [NSString stringWithFormat:@"%.2f MB", size / (1024.0 * 1024.0)];
+    } else {
+        return [NSString stringWithFormat:@"%.2f GB", size / (1024.0 * 1024.0 * 1024.0)];
+    }
+}
+
 @end
 

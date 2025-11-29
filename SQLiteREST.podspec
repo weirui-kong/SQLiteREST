@@ -8,7 +8,7 @@
 
 Pod::Spec.new do |s|
   s.name             = 'SQLiteREST'
-  s.version          = '0.0.2'
+  s.version          = '0.0.3'
   s.summary          = 'A lightweight RESTful service for SQLite databases running on iOS devices. '
   s.swift_version = '5.0'
   s.platform = :ios, '13.0'

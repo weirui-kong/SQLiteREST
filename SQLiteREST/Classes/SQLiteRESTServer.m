@@ -118,6 +118,14 @@
                         processBlock:^GCDWebServerResponse * _Nullable(__kindof GCDWebServerRequest * _Nonnull request) {
         return [weakSelf handleDeviceInfo];
     }];
+    
+    // GET /api/database/info - Get database information
+    [_webServer addHandlerForMethod:@"GET"
+                                path:@"/api/database/info"
+                        requestClass:[GCDWebServerRequest class]
+                        processBlock:^GCDWebServerResponse * _Nullable(__kindof GCDWebServerRequest * _Nonnull request) {
+        return [weakSelf handleDatabaseInfo];
+    }];
 }
 
 - (NSString *)extractTableNameFromPath:(NSString *)path {
@@ -675,6 +683,47 @@
     
     [self logWebResponse:0]; // Device info response, row count is 0
     return [GCDWebServerDataResponse responseWithJSONObject:responseDict];
+}
+
+- (GCDWebServerResponse *)handleDatabaseInfo {
+    // Web log: record request
+    [self logWebRequest:@"GET" path:@"/api/database/info" parameters:nil];
+    
+    if (!self.worker) {
+        NSDictionary *errorResponse = @{
+            @"ok": @NO,
+            @"error": @"Database not initialized",
+            @"code": @"DATABASE_ERROR"
+        };
+        [self logWebResponse:0];
+        return [GCDWebServerDataResponse responseWithJSONObject:errorResponse];
+    }
+    
+    __block GCDWebServerResponse *response = nil;
+    dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
+    
+    [self.worker getDatabaseInfoWithCompletion:^(BOOL success, id result, NSString *errorMessage, NSString *errorCode) {
+        if (success) {
+            NSDictionary *responseDict = @{
+                @"ok": @YES,
+                @"data": result
+            };
+            response = [GCDWebServerDataResponse responseWithJSONObject:responseDict];
+            [self logWebResponse:0]; // Database info response, row count is 0
+        } else {
+            NSDictionary *responseDict = @{
+                @"ok": @NO,
+                @"error": errorMessage ?: @"Unknown error",
+                @"code": errorCode ?: @"UNKNOWN_ERROR"
+            };
+            response = [GCDWebServerDataResponse responseWithJSONObject:responseDict];
+            [self logWebResponse:0];
+        }
+        dispatch_semaphore_signal(semaphore);
+    }];
+    
+    dispatch_semaphore_wait(semaphore, DISPATCH_TIME_FOREVER);
+    return response;
 }
 
 #pragma mark - Logging

@@ -26,6 +26,7 @@ typedef void(^SQLiteRESTWorkerCompletionBlock)(BOOL success, id _Nullable result
 - (void)updateRowInTable:(NSString *)tableName primaryKey:(NSDictionary *)primaryKey newValues:(NSDictionary *)newValues completion:(SQLiteRESTWorkerCompletionBlock)completion;
 - (void)deleteRowFromTable:(NSString *)tableName primaryKey:(NSDictionary *)primaryKey completion:(SQLiteRESTWorkerCompletionBlock)completion;
 - (void)executeSQL:(NSString *)sql completion:(SQLiteRESTWorkerCompletionBlock)completion;
+- (void)getDatabaseInfoWithCompletion:(SQLiteRESTWorkerCompletionBlock)completion;
 
 @end
 

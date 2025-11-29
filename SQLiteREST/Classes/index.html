@@ -493,7 +493,11 @@
             border-radius: 8px;
             max-width: 500px;
             width: 90%;
+            max-height: 90vh;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
         }
         
         .modal-header {
@@ -501,16 +505,21 @@
             font-weight: 600;
             margin-bottom: 15px;
             color: #333;
+            flex-shrink: 0;
         }
         
         .modal-body {
             margin-bottom: 20px;
             color: #666;
             line-height: 1.5;
+            overflow-y: auto;
+            flex: 1;
+            min-height: 0;
         }
         
         .modal-footer {
             text-align: right;
+            flex-shrink: 0;
         }
         
         .modal-footer button {
@@ -612,6 +621,74 @@
             font-size: 10px;
             margin-right: 6px;
         }
+        
+        /* 数据库信息弹窗 */
+        .database-info-modal .modal-content {
+            max-width: 800px;
+            max-height: 90vh;
+        }
+        
+        .database-info-section {
+            margin-bottom: 24px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .database-info-section:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+        
+        .database-info-section-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #007bff;
+        }
+        
+        .database-info-item {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 10px;
+            line-height: 1.6;
+        }
+        
+        .database-info-label {
+            font-weight: 500;
+            color: #666;
+            min-width: 140px;
+            flex-shrink: 0;
+        }
+        
+        .database-info-value {
+            color: #333;
+            flex: 1;
+            word-break: break-word;
+        }
+        
+        .database-info-path {
+            font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+            font-size: 11px;
+            color: #555;
+            word-break: break-all;
+            background: #f8f9fa;
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #e0e0e0;
+        }
+        
+        .integrity-ok {
+            color: #28a745;
+            font-weight: 500;
+        }
+        
+        .integrity-error {
+            color: #dc3545;
+            font-weight: 500;
+        }
     </style>
 </head>
 <body>
@@ -628,6 +705,7 @@
             <div class="button-group">
                 <button onclick="loadTables()">刷新</button>
                 <button onclick="showDeviceInfo()">设备信息</button>
+                <button onclick="showDatabaseInfo()">数据库</button>
             </div>
         </div>
         <div class="table-list" id="tableList">
@@ -1225,6 +1303,116 @@
                 }
             } catch (e) {
                 showModal('错误', '获取设备信息失败: ' + e.message, 'error');
+            }
+        }
+
+        async function showDatabaseInfo() {
+            try {
+                const res = await fetch('/api/database/info');
+                const data = await res.json();
+                if (data.ok) {
+                    const dbInfo = data.data;
+                    
+                    let html = '<div class="database-info-modal">';
+                    
+                    // 数据库文件信息
+                    html += '<div class="database-info-section">';
+                    html += '<div class="database-info-section-title">数据库文件</div>';
+                    if (dbInfo.path) {
+                        html += '<div class="database-info-item"><span class="database-info-label">沙盒路径:</span><div class="database-info-value"><div class="database-info-path">' + escapeHtml(dbInfo.path) + '</div></div></div>';
+                    }
+                    if (dbInfo.fileSizeFormatted) {
+                        html += `<div class="database-info-item"><span class="database-info-label">文件大小:</span><span class="database-info-value">${escapeHtml(dbInfo.fileSizeFormatted)}</span></div>`;
+                    }
+                    if (dbInfo.databaseSizeFormatted) {
+                        html += `<div class="database-info-item"><span class="database-info-label">数据库大小:</span><span class="database-info-value">${escapeHtml(dbInfo.databaseSizeFormatted)}</span></div>`;
+                    }
+                    if (dbInfo.lastModified) {
+                        html += `<div class="database-info-item"><span class="database-info-label">最后修改:</span><span class="database-info-value">${escapeHtml(dbInfo.lastModified)}</span></div>`;
+                    }
+                    html += '</div>';
+                    
+                    // SQLite 版本信息
+                    html += '<div class="database-info-section">';
+                    html += '<div class="database-info-section-title">SQLite 信息</div>';
+                    html += `<div class="database-info-item"><span class="database-info-label">SQLite 版本:</span><span class="database-info-value">${escapeHtml(dbInfo.sqliteVersion || 'Unknown')}</span></div>`;
+                    if (dbInfo.encoding) {
+                        html += `<div class="database-info-item"><span class="database-info-label">编码:</span><span class="database-info-value">${escapeHtml(dbInfo.encoding)}</span></div>`;
+                    }
+                    html += '</div>';
+                    
+                    // 数据库配置
+                    html += '<div class="database-info-section">';
+                    html += '<div class="database-info-section-title">数据库配置</div>';
+                    if (dbInfo.pageSize) {
+                        html += `<div class="database-info-item"><span class="database-info-label">页面大小:</span><span class="database-info-value">${dbInfo.pageSize.toLocaleString()} bytes</span></div>`;
+                    }
+                    if (dbInfo.pageCount) {
+                        html += `<div class="database-info-item"><span class="database-info-label">页面数量:</span><span class="database-info-value">${dbInfo.pageCount.toLocaleString()}</span></div>`;
+                    }
+                    if (dbInfo.userVersion !== undefined) {
+                        html += `<div class="database-info-item"><span class="database-info-label">用户版本:</span><span class="database-info-value">${dbInfo.userVersion}</span></div>`;
+                    }
+                    if (dbInfo.applicationId !== undefined) {
+                        html += `<div class="database-info-item"><span class="database-info-label">应用ID:</span><span class="database-info-value">${dbInfo.applicationId} (0x${dbInfo.applicationId.toString(16).toUpperCase()})</span></div>`;
+                    }
+                    if (dbInfo.autoVacuum) {
+                        html += `<div class="database-info-item"><span class="database-info-label">自动清理:</span><span class="database-info-value">${escapeHtml(dbInfo.autoVacuum)}</span></div>`;
+                    }
+                    if (dbInfo.foreignKeys !== undefined) {
+                        html += `<div class="database-info-item"><span class="database-info-label">外键约束:</span><span class="database-info-value">${dbInfo.foreignKeys ? '启用' : '禁用'}</span></div>`;
+                    }
+                    if (dbInfo.journalMode) {
+                        html += `<div class="database-info-item"><span class="database-info-label">日志模式:</span><span class="database-info-value">${escapeHtml(dbInfo.journalMode)}</span></div>`;
+                    }
+                    if (dbInfo.synchronous) {
+                        html += `<div class="database-info-item"><span class="database-info-label">同步模式:</span><span class="database-info-value">${escapeHtml(dbInfo.synchronous)}</span></div>`;
+                    }
+                    if (dbInfo.cacheSize !== undefined) {
+                        html += `<div class="database-info-item"><span class="database-info-label">缓存大小:</span><span class="database-info-value">${dbInfo.cacheSize.toLocaleString()} pages</span></div>`;
+                    }
+                    if (dbInfo.tempStore) {
+                        html += `<div class="database-info-item"><span class="database-info-label">临时存储:</span><span class="database-info-value">${escapeHtml(dbInfo.tempStore)}</span></div>`;
+                    }
+                    html += '</div>';
+                    
+                    // 统计信息
+                    html += '<div class="database-info-section">';
+                    html += '<div class="database-info-section-title">统计信息</div>';
+                    html += `<div class="database-info-item"><span class="database-info-label">表数量:</span><span class="database-info-value">${dbInfo.tableCount || 0}</span></div>`;
+                    html += `<div class="database-info-item"><span class="database-info-label">索引数量:</span><span class="database-info-value">${dbInfo.indexCount || 0}</span></div>`;
+                    html += `<div class="database-info-item"><span class="database-info-label">触发器数量:</span><span class="database-info-value">${dbInfo.triggerCount || 0}</span></div>`;
+                    html += `<div class="database-info-item"><span class="database-info-label">视图数量:</span><span class="database-info-value">${dbInfo.viewCount || 0}</span></div>`;
+                    html += '</div>';
+                    
+                    // 完整性检查
+                    html += '<div class="database-info-section">';
+                    html += '<div class="database-info-section-title">完整性检查</div>';
+                    if (dbInfo.integrityCheck !== undefined) {
+                        const integrityOk = dbInfo.integrityOk !== false;
+                        html += `<div class="database-info-item"><span class="database-info-label">完整性检查:</span><span class="database-info-value ${integrityOk ? 'integrity-ok' : 'integrity-error'}">${escapeHtml(dbInfo.integrityCheck)}</span></div>`;
+                    }
+                    if (dbInfo.quickCheck !== undefined) {
+                        const quickCheckOk = dbInfo.quickCheckOk !== false;
+                        html += `<div class="database-info-item"><span class="database-info-label">快速检查:</span><span class="database-info-value ${quickCheckOk ? 'integrity-ok' : 'integrity-error'}">${escapeHtml(dbInfo.quickCheck)}</span></div>`;
+                    }
+                    html += '</div>';
+                    
+                    html += '</div>';
+                    
+                    const modal = document.getElementById('modal');
+                    const header = document.getElementById('modalHeader');
+                    const body = document.getElementById('modalBody');
+                    
+                    modal.className = 'modal database-info-modal';
+                    header.textContent = '数据库信息';
+                    body.innerHTML = html;
+                    modal.style.display = 'flex';
+                } else {
+                    showModal('错误', '获取数据库信息失败: ' + data.error, 'error');
+                }
+            } catch (e) {
+                showModal('错误', '获取数据库信息失败: ' + e.message, 'error');
             }
         }
 
