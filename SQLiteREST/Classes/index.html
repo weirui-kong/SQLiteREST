@@ -60,6 +60,11 @@
             fill: currentColor;
         }
         
+        .sidebar-header .button-group {
+            display: flex;
+            gap: 8px;
+        }
+        
         .sidebar-header button {
             background: rgba(255, 255, 255, 0.2);
             color: white;
@@ -542,6 +547,71 @@
         .modal.success .modal-header {
             color: #28a745;
         }
+        
+        /* 设备信息弹窗 */
+        .device-info-modal .modal-content {
+            max-width: 600px;
+        }
+        
+        .device-info-section {
+            margin-bottom: 20px;
+        }
+        
+        .device-info-section-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #007bff;
+            margin-bottom: 10px;
+            padding-bottom: 5px;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .device-info-item {
+            display: flex;
+            padding: 8px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        
+        .device-info-item:last-child {
+            border-bottom: none;
+        }
+        
+        .device-info-label {
+            font-weight: 500;
+            color: #666;
+            min-width: 120px;
+            font-size: 13px;
+        }
+        
+        .device-info-value {
+            flex: 1;
+            color: #333;
+            font-size: 13px;
+            word-break: break-all;
+        }
+        
+        .device-info-ip-list {
+            margin-top: 5px;
+        }
+        
+        .device-info-ip-item {
+            padding: 4px 8px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            margin-bottom: 4px;
+            font-size: 12px;
+            font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+        }
+        
+        .device-info-ip-item .ip-type {
+            display: inline-block;
+            padding: 2px 6px;
+            background: #007bff;
+            color: white;
+            border-radius: 3px;
+            font-size: 10px;
+            margin-right: 6px;
+        }
     </style>
 </head>
 <body>
@@ -555,7 +625,10 @@
                     </svg>
                 </a>
             </h1>
-            <button onclick="loadTables()">刷新</button>
+            <div class="button-group">
+                <button onclick="loadTables()">刷新</button>
+                <button onclick="showDeviceInfo()">设备信息</button>
+            </div>
         </div>
         <div class="table-list" id="tableList">
             <div class="empty-state">加载中...</div>
@@ -1088,6 +1161,71 @@
         function closeModal() {
             const modal = document.getElementById('modal');
             modal.style.display = 'none';
+        }
+
+        async function showDeviceInfo() {
+            try {
+                const res = await fetch('/api/device/info');
+                const data = await res.json();
+                if (data.ok) {
+                    const deviceInfo = data.data;
+                    const networkInfo = deviceInfo.network || {};
+                    
+                    let html = '<div class="device-info-modal">';
+                    
+                    // 设备基础信息
+                    html += '<div class="device-info-section">';
+                    html += '<div class="device-info-section-title">设备信息</div>';
+                    html += `<div class="device-info-item"><span class="device-info-label">设备名称:</span><span class="device-info-value">${escapeHtml(deviceInfo.deviceName || 'Unknown')}</span></div>`;
+                    html += `<div class="device-info-item"><span class="device-info-label">设备型号:</span><span class="device-info-value">${escapeHtml(deviceInfo.model || 'Unknown')}</span></div>`;
+                    html += `<div class="device-info-item"><span class="device-info-label">系统名称:</span><span class="device-info-value">${escapeHtml(deviceInfo.systemName || 'Unknown')}</span></div>`;
+                    html += `<div class="device-info-item"><span class="device-info-label">系统版本:</span><span class="device-info-value">${escapeHtml(deviceInfo.systemVersion || 'Unknown')}</span></div>`;
+                    html += `<div class="device-info-item"><span class="device-info-label">设备ID:</span><span class="device-info-value">${escapeHtml(deviceInfo.identifierForVendor || 'Unknown')}</span></div>`;
+                    html += '</div>';
+                    
+                    // 网络信息
+                    html += '<div class="device-info-section">';
+                    html += '<div class="device-info-section-title">网络信息</div>';
+                    html += `<div class="device-info-item"><span class="device-info-label">服务器URL:</span><span class="device-info-value">${escapeHtml(networkInfo.serverURL || 'Unknown')}</span></div>`;
+                    html += `<div class="device-info-item"><span class="device-info-label">主机地址:</span><span class="device-info-value">${escapeHtml(networkInfo.host || 'Unknown')}</span></div>`;
+                    html += `<div class="device-info-item"><span class="device-info-label">端口:</span><span class="device-info-value">${networkInfo.port || 0}</span></div>`;
+                    html += `<div class="device-info-item"><span class="device-info-label">主要IP:</span><span class="device-info-value">${escapeHtml(networkInfo.primaryIP || 'Not available')}</span></div>`;
+                    
+                    // IP地址列表
+                    if (networkInfo.ipAddresses && networkInfo.ipAddresses.length > 0) {
+                        html += '<div class="device-info-item" style="flex-direction: column; align-items: flex-start;">';
+                        html += '<span class="device-info-label" style="margin-bottom: 5px;">所有IP地址:</span>';
+                        html += '<div class="device-info-ip-list">';
+                        networkInfo.ipAddresses.forEach(ipInfo => {
+                            html += `<div class="device-info-ip-item">`;
+                            html += `<span class="ip-type">${escapeHtml(ipInfo.type || 'IP')}</span>`;
+                            html += `<strong>${escapeHtml(ipInfo.interface || 'Unknown')}:</strong> `;
+                            html += `<span>${escapeHtml(ipInfo.ip || 'Unknown')}</span>`;
+                            html += `</div>`;
+                        });
+                        html += '</div>';
+                        html += '</div>';
+                    } else {
+                        html += `<div class="device-info-item"><span class="device-info-label">IP地址:</span><span class="device-info-value">Not available</span></div>`;
+                    }
+                    
+                    html += '</div>';
+                    html += '</div>';
+                    
+                    const modal = document.getElementById('modal');
+                    const header = document.getElementById('modalHeader');
+                    const body = document.getElementById('modalBody');
+                    
+                    modal.className = 'modal device-info-modal';
+                    header.textContent = '设备信息';
+                    body.innerHTML = html;
+                    modal.style.display = 'flex';
+                } else {
+                    showModal('错误', '获取设备信息失败: ' + data.error, 'error');
+                }
+            } catch (e) {
+                showModal('错误', '获取设备信息失败: ' + e.message, 'error');
+            }
         }
 
         function escapeHtml(text) {

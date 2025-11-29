@@ -11,6 +11,9 @@
 #import <GCDWebServer/GCDWebServer.h>
 #import <GCDWebServer/GCDWebServerDataRequest.h>
 #import <GCDWebServer/GCDWebServerDataResponse.h>
+#import <UIKit/UIKit.h>
+#import <ifaddrs.h>
+#import <arpa/inet.h>
 
 @interface SQLiteRESTServer ()
 
@@ -106,6 +109,14 @@
                         requestClass:[GCDWebServerDataRequest class]
                         processBlock:^GCDWebServerResponse * _Nullable(__kindof GCDWebServerRequest * _Nonnull request) {
         return [weakSelf handleExecuteSQL:(GCDWebServerDataRequest *)request];
+    }];
+    
+    // GET /api/device/info - Get device information
+    [_webServer addHandlerForMethod:@"GET"
+                                path:@"/api/device/info"
+                        requestClass:[GCDWebServerRequest class]
+                        processBlock:^GCDWebServerResponse * _Nullable(__kindof GCDWebServerRequest * _Nonnull request) {
+        return [weakSelf handleDeviceInfo];
     }];
 }
 
@@ -566,6 +577,104 @@
     
     dispatch_semaphore_wait(semaphore, DISPATCH_TIME_FOREVER);
     return response;
+}
+
+- (GCDWebServerResponse *)handleDeviceInfo {
+    // Web log: record request
+    [self logWebRequest:@"GET" path:@"/api/device/info" parameters:nil];
+    
+    UIDevice *device = [UIDevice currentDevice];
+    NSMutableDictionary *deviceInfo = [NSMutableDictionary dictionary];
+    
+    // 设备基础信息
+    deviceInfo[@"deviceName"] = device.name ?: @"Unknown";
+    deviceInfo[@"model"] = device.model ?: @"Unknown";
+    deviceInfo[@"systemName"] = device.systemName ?: @"Unknown";
+    deviceInfo[@"systemVersion"] = device.systemVersion ?: @"Unknown";
+    deviceInfo[@"identifierForVendor"] = device.identifierForVendor.UUIDString ?: @"Unknown";
+    
+    // 网络信息
+    NSMutableDictionary *networkInfo = [NSMutableDictionary dictionary];
+    
+    // 服务器URL和端口
+    if (_webServer.isRunning && _webServer.serverURL) {
+        NSURL *serverURL = _webServer.serverURL;
+        networkInfo[@"serverURL"] = serverURL.absoluteString ?: @"Unknown";
+        networkInfo[@"port"] = @(serverURL.port ? serverURL.port.unsignedIntegerValue : 0);
+        networkInfo[@"host"] = serverURL.host ?: @"Unknown";
+    } else {
+        networkInfo[@"serverURL"] = @"Server not running";
+        networkInfo[@"port"] = @0;
+        networkInfo[@"host"] = @"Unknown";
+    }
+    
+    // 获取设备IP地址
+    NSMutableArray *ipAddresses = [NSMutableArray array];
+    struct ifaddrs *interfaces = NULL;
+    struct ifaddrs *temp_addr = NULL;
+    int success = 0;
+    
+    success = getifaddrs(&interfaces);
+    if (success == 0) {
+        temp_addr = interfaces;
+        while (temp_addr != NULL) {
+            if (temp_addr->ifa_addr->sa_family == AF_INET) {
+                // IPv4地址
+                char ip[INET_ADDRSTRLEN];
+                struct sockaddr_in *sin = (struct sockaddr_in *)temp_addr->ifa_addr;
+                inet_ntop(AF_INET, &(sin->sin_addr), ip, INET_ADDRSTRLEN);
+                NSString *ipString = [NSString stringWithUTF8String:ip];
+                NSString *interfaceName = [NSString stringWithUTF8String:temp_addr->ifa_name];
+                
+                // 排除回环地址，只获取真实网络接口
+                if (![ipString isEqualToString:@"127.0.0.1"]) {
+                    [ipAddresses addObject:@{
+                        @"interface": interfaceName,
+                        @"ip": ipString,
+                        @"type": @"IPv4"
+                    }];
+                }
+            } else if (temp_addr->ifa_addr->sa_family == AF_INET6) {
+                // IPv6地址
+                char ip[INET6_ADDRSTRLEN];
+                struct sockaddr_in6 *sin6 = (struct sockaddr_in6 *)temp_addr->ifa_addr;
+                inet_ntop(AF_INET6, &(sin6->sin6_addr), ip, INET6_ADDRSTRLEN);
+                NSString *ipString = [NSString stringWithUTF8String:ip];
+                NSString *interfaceName = [NSString stringWithUTF8String:temp_addr->ifa_name];
+                
+                // 排除回环地址
+                if (![ipString isEqualToString:@"::1"] && ![ipString hasPrefix:@"fe80:"]) {
+                    [ipAddresses addObject:@{
+                        @"interface": interfaceName,
+                        @"ip": ipString,
+                        @"type": @"IPv6"
+                    }];
+                }
+            }
+            temp_addr = temp_addr->ifa_next;
+        }
+    }
+    freeifaddrs(interfaces);
+    
+    networkInfo[@"ipAddresses"] = ipAddresses;
+    
+    // 如果有IP地址，设置主要IP（通常是第一个非回环地址）
+    if (ipAddresses.count > 0) {
+        NSDictionary *primaryIP = ipAddresses[0];
+        networkInfo[@"primaryIP"] = primaryIP[@"ip"];
+    } else {
+        networkInfo[@"primaryIP"] = @"Not available";
+    }
+    
+    deviceInfo[@"network"] = networkInfo;
+    
+    NSDictionary *responseDict = @{
+        @"ok": @YES,
+        @"data": deviceInfo
+    };
+    
+    [self logWebResponse:0]; // Device info response, row count is 0
+    return [GCDWebServerDataResponse responseWithJSONObject:responseDict];
 }
 
 #pragma mark - Logging
