@@ -36,6 +36,28 @@
         .sidebar-header h1 {
             font-size: 18px;
             margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .sidebar-header h1 .github-link {
+            display: inline-flex;
+            align-items: center;
+            color: white;
+            text-decoration: none;
+            opacity: 0.8;
+            transition: opacity 0.2s;
+        }
+        
+        .sidebar-header h1 .github-link:hover {
+            opacity: 1;
+        }
+        
+        .sidebar-header h1 .github-link svg {
+            width: 18px;
+            height: 18px;
+            fill: currentColor;
         }
         
         .sidebar-header button {
@@ -325,6 +347,31 @@
             font-weight: 600;
             position: sticky;
             top: 0;
+            cursor: pointer;
+            user-select: none;
+            padding-right: 25px;
+        }
+        
+        th:hover {
+            background: #e9ecef;
+        }
+        
+        th.sortable::after {
+            content: ' ↕';
+            position: absolute;
+            right: 8px;
+            color: #999;
+            font-size: 12px;
+        }
+        
+        th.sort-asc::after {
+            content: ' ↑';
+            color: #007bff;
+        }
+        
+        th.sort-desc::after {
+            content: ' ↓';
+            color: #007bff;
         }
         
         tr:hover {
@@ -501,7 +548,13 @@
     <!-- 左侧边栏 -->
     <div class="sidebar">
         <div class="sidebar-header">
-            <h1>SQLite REST</h1>
+            <h1>SQLite REST
+                <a href="https://github.com/weirui-kong/SQLiteREST" target="_blank" rel="noopener noreferrer" class="github-link" title="View on GitHub">
+                    <svg viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true">
+                        <path fill-rule="evenodd" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path>
+                    </svg>
+                </a>
+            </h1>
             <button onclick="loadTables()">刷新</button>
         </div>
         <div class="table-list" id="tableList">
@@ -533,6 +586,8 @@
         let currentRows = [];
         let currentColumns = [];
         let editingRowIdx = null; // 正在编辑的行索引
+        let sortColumn = null; // 当前排序列名
+        let sortDirection = null; // 排序方向: 'asc' 或 'desc'
         
         // 检查表是否可以编辑（必须有 rowid 且不是视图）
         function canEditTable() {
@@ -576,6 +631,10 @@
             if (!table) return;
             
             currentTable = table;
+            
+            // 重置排序状态
+            sortColumn = null;
+            sortDirection = null;
             
             // 更新选中状态
             document.querySelectorAll('.table-item').forEach(item => {
@@ -734,6 +793,24 @@
             }
         }
 
+        function sortByColumn(column) {
+            if (sortColumn === column) {
+                // 如果点击的是当前排序列，切换排序方向
+                if (sortDirection === 'asc') {
+                    sortDirection = 'desc';
+                } else if (sortDirection === 'desc') {
+                    // 再次点击取消排序
+                    sortColumn = null;
+                    sortDirection = null;
+                }
+            } else {
+                // 点击新列，设置为升序
+                sortColumn = column;
+                sortDirection = 'asc';
+            }
+            displayRows();
+        }
+
         function displayRows() {
             const container = document.getElementById('rowsContainer');
             if (!container) return;
@@ -743,17 +820,55 @@
                 return;
             }
             
+            // 应用排序
+            let sortedRows = [...currentRows];
+            if (sortColumn !== null && sortDirection !== null) {
+                const colIdx = currentColumns.indexOf(sortColumn);
+                if (colIdx >= 0) {
+                    sortedRows.sort((a, b) => {
+                        const valA = a[colIdx];
+                        const valB = b[colIdx];
+                        
+                        // 处理 null/undefined
+                        if (valA === null || valA === undefined) return 1;
+                        if (valB === null || valB === undefined) return -1;
+                        
+                        // 尝试数字比较
+                        const numA = parseFloat(valA);
+                        const numB = parseFloat(valB);
+                        if (!isNaN(numA) && !isNaN(numB)) {
+                            return sortDirection === 'asc' ? numA - numB : numB - numA;
+                        }
+                        
+                        // 字符串比较
+                        const strA = String(valA).toLowerCase();
+                        const strB = String(valB).toLowerCase();
+                        if (sortDirection === 'asc') {
+                            return strA < strB ? -1 : strA > strB ? 1 : 0;
+                        } else {
+                            return strA > strB ? -1 : strA < strB ? 1 : 0;
+                        }
+                    });
+                }
+            }
+            
             let html = '<table><thead><tr>';
             currentColumns.forEach(col => {
-                html += `<th>${escapeHtml(col)}</th>`;
+                let sortClass = 'sortable';
+                if (sortColumn === col) {
+                    sortClass += sortDirection === 'asc' ? ' sort-asc' : ' sort-desc';
+                }
+                html += `<th class="${sortClass}" onclick="sortByColumn('${escapeHtml(col)}')">${escapeHtml(col)}</th>`;
             });
             if (canEditTable()) {
                 html += '<th>操作</th>';
             }
             html += '</tr></thead><tbody>';
             
-            currentRows.forEach((row, idx) => {
-                const isEditing = editingRowIdx === idx;
+            sortedRows.forEach((row, idx) => {
+                // 需要找到原始索引以保持编辑功能
+                const originalIdx = currentRows.indexOf(row);
+                const isEditing = editingRowIdx === originalIdx;
                 html += `<tr class="${isEditing ? 'editing' : ''}">`;
                 
                 currentColumns.forEach((col, colIdx) => {
@@ -767,7 +882,7 @@
                             html += `<td><div class="readonly-cell">${escapeHtml(cellValue)}</div></td>`;
                         } else {
                             // 非主键列显示为可编辑的多行 textarea
-                            html += `<td><textarea class="editable-cell" id="edit_${idx}_${colIdx}" data-col="${escapeHtml(colName)}" rows="3">${escapeHtml(cellValue)}</textarea></td>`;
+                            html += `<td><textarea class="editable-cell" id="edit_${originalIdx}_${colIdx}" data-col="${escapeHtml(colName)}" rows="3">${escapeHtml(cellValue)}</textarea></td>`;
                         }
                     } else {
                         html += `<td>${escapeHtml(cellValue)}</td>`;
@@ -778,15 +893,15 @@
                     if (isEditing) {
                         html += `<td>
                             <div class="action-buttons">
-                                <button class="btn-save" onclick="saveRow(${idx})">保存</button>
+                                <button class="btn-save" onclick="saveRow(${originalIdx})">保存</button>
                                 <button class="btn-cancel" onclick="cancelEdit()">取消</button>
                             </div>
                         </td>`;
                     } else {
                         html += `<td>
                             <div class="action-buttons">
-                                <button class="btn-edit" onclick="editRow(${idx})">编辑</button>
-                                <button class="btn-delete" onclick="deleteRow(${idx})">删除</button>
+                                <button class="btn-edit" onclick="editRow(${originalIdx})">编辑</button>
+                                <button class="btn-delete" onclick="deleteRow(${originalIdx})">删除</button>
                             </div>
                         </td>`;
                     }
