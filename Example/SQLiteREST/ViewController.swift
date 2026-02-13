@@ -10,18 +10,32 @@ import UIKit
 import SQLiteREST
 
 class ViewController: UIViewController {
-    
+
     @IBOutlet weak var logTextView: UITextView!
-    
+
     private let defaultPort: UInt = 8080
     private let defaultDatabaseName = "Northwind_small.sqlite"
-    
+
+    /// 新版 API 服务（Swift + GCDWebServer，/api/v1/*）
+    private let apiServer = SQLiteRESTAPIServer()
+
     override func viewDidLoad() {
         super.viewDidLoad()
         setupUI()
         setupServer()
     }
-    
+
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        if isBeingDismissed || isMovingFromParentViewController {
+            apiServer.stop()
+        }
+    }
+
+    deinit {
+        apiServer.stop()
+    }
+
     private func setupUI() {
         // Create log text view if not connected via IB
         if logTextView == nil {
@@ -33,7 +47,7 @@ class ViewController: UIViewController {
             logTextView.isEditable = false
             logTextView.textContainerInset = UIEdgeInsets(top: 10, left: 10, bottom: 10, right: 10)
             view.addSubview(logTextView)
-            
+
             NSLayoutConstraint.activate([
                 logTextView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
                 logTextView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
@@ -41,32 +55,37 @@ class ViewController: UIViewController {
                 logTextView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
             ])
         }
-        
-        logTextView.text = "SQLiteREST Server Log\n" + String(repeating: "=", count: 50) + "\n\n"
+
+        logTextView.text = "SQLiteREST API Server (v1)\n" + String(repeating: "=", count: 50) + "\n\n"
     }
-    
+
     private func setupServer() {
-        let server = SQLiteRESTServer.sharedInstance()
-        
-        // Set up log handler
-        server.logHandler = { [weak self] message in
-            DispatchQueue.main.async {
-                self?.appendLog(message)
-            }
-        }
-        
-        // Get database path
         guard let databasePath = Bundle.main.path(forResource: "Northwind_small", ofType: "sqlite") else {
             appendLog("ERROR: Could not find \(defaultDatabaseName) in bundle")
             return
         }
-        
-        appendLog("Starting server on port \(defaultPort)...")
+
         appendLog("Database: \(databasePath)")
-        server.stop()
-        // Start server
-        server.start(onPort: defaultPort, withPath: databasePath)
-        server.start(onPort: defaultPort, withPath: databasePath)
+        appendLog("Starting API server on port \(defaultPort)...")
+
+        do {
+            try apiServer.start(databasePath: databasePath, port: defaultPort)
+            if let url = apiServer.serverURL {
+                let base = url.absoluteString.hasSuffix("/") ? url.absoluteString : url.absoluteString + "/"
+                let apiBase = base + "api/v1"
+                appendLog("Server started: \(url.absoluteString)")
+                appendLog("API base: \(apiBase)")
+                appendLog("")
+                appendLog("Examples:")
+                appendLog("  GET  \(apiBase)/db/info")
+                appendLog("  GET  \(apiBase)/tables")
+                appendLog("  GET  \(apiBase)/tables/Product/rows?_page=1&_per_page=10")
+            } else {
+                appendLog("Server started (URL unknown)")
+            }
+        } catch {
+            appendLog("ERROR: Failed to start server: \(error.localizedDescription)")
+        }
     }
     
     private func appendLog(_ message: String) {

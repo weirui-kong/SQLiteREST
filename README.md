@@ -62,22 +62,24 @@ pod install
 import SQLiteREST
 ```
 
-2. Get the shared server instance and start it:
+2. Create and start the API server:
 
 ```swift
-let server = SQLiteRESTServer.sharedInstance()
-
-// Optional: Set up log handler
-server.logHandler = { message in
-    print("SQLiteREST: \(message)")
-}
+let server = SQLiteRESTAPIServer()
 
 // Start the server on a port with your database path
 let databasePath = // Your SQLite database file path
-server.startServerOnPort(8080, withPath: databasePath)
+do {
+    try server.start(databasePath: databasePath, port: 8080)
+    print("SQLiteREST started at: \(server.serverURL?.absoluteString ?? "unknown")")
+} catch {
+    print("Failed to start SQLiteREST: \(error)")
+}
 ```
 
-3. Access the web UI by navigating to `http://<device-ip>:8080` in your browser (make sure your device and computer are on the same network).
+3. Access:
+   - Web UI: `http://<device-ip>:8080`
+   - API Base: `http://<device-ip>:8080/api/v1`
 
 ### Example
 
@@ -99,8 +101,8 @@ The example project demonstrates how to use SQLiteREST with the [Northwind SQLit
 
 ```swift
 #if DEBUG
-    let server = SQLiteRESTServer.sharedInstance()
-    server.startServerOnPort(8080, withPath: databasePath)
+    let server = SQLiteRESTAPIServer()
+    try? server.start(databasePath: databasePath, port: 8080)
 #endif
 ```
 
@@ -112,7 +114,7 @@ The example project demonstrates how to use SQLiteREST with the [Northwind SQLit
 
 ## API Documentation
 
-For detailed API documentation, see [api.md](api.md).
+For detailed API documentation, see [docs/api-v1.md](docs/api-v1.md).
 
 ## Demo Database
 

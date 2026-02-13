@@ -1,1437 +1,640 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>SQLite REST</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>SQLiteREST</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: system-ui, sans-serif; font-size: 14px; height: 100vh; display: flex; flex-direction: column; }
+        .layout { display: flex; flex: 1; min-height: 0; }
+        .sidebar { width: 220px; border-right: 1px solid #ccc; overflow-y: auto; background: #fafafa; display: flex; flex-direction: column; }
+        .sidebar-scroll { flex: 1; overflow-y: auto; }
+        .sidebar-footer {
+            border-top: 1px solid #ddd;
+            padding: 8px 12px;
+            font-size: 12px;
+            background: #f3f3f3;
         }
-        
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
-            height: 100vh;
-            display: flex;
-            overflow: hidden;
-        }
-        
-        /* 左侧边栏 */
-        .sidebar {
-            width: 250px;
-            background: #f5f5f5;
-            border-right: 1px solid #ddd;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-        
-        .sidebar-header {
-            padding: 20px;
-            background: #007bff;
-            color: white;
-        }
-        
-        .sidebar-header h1 {
-            font-size: 18px;
-            margin-bottom: 10px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        
-        .sidebar-header h1 .github-link {
-            display: inline-flex;
-            align-items: center;
-            color: white;
+        .sidebar-footer a {
+            color: #333;
             text-decoration: none;
-            opacity: 0.8;
-            transition: opacity 0.2s;
         }
-        
-        .sidebar-header h1 .github-link:hover {
-            opacity: 1;
-        }
-        
-        .sidebar-header h1 .github-link svg {
-            width: 18px;
-            height: 18px;
-            fill: currentColor;
-        }
-        
-        .sidebar-header .button-group {
-            display: flex;
-            gap: 8px;
-        }
-        
-        .sidebar-header button {
-            background: rgba(255, 255, 255, 0.2);
-            color: white;
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            padding: 6px 12px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 12px;
-        }
-        
-        .sidebar-header button:hover {
-            background: rgba(255, 255, 255, 0.3);
-        }
-        
-        .table-list {
-            flex: 1;
-            overflow-y: auto;
-            padding: 10px;
-        }
-        
-        .table-item {
-            padding: 12px;
-            margin: 5px 0;
-            background: white;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        
-        .table-item:hover {
-            background: #e9ecef;
-            border-color: #007bff;
-        }
-        
-        .table-item.active {
-            background: #007bff;
-            color: white;
-            border-color: #0056b3;
-        }
-        
-        .table-item .table-name {
-            font-weight: 500;
-        }
-        
-        .table-item .table-type {
-            font-size: 11px;
-            opacity: 0.7;
-            margin-top: 4px;
-        }
-        
-        /* 右侧工作区 */
-        .workspace {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-        
-        .workspace-content {
-            flex: 1;
-            overflow-y: auto;
-            padding: 20px;
-        }
-        
-        .section {
-            margin-bottom: 30px;
-            background: white;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            padding: 20px;
-        }
-        
-        .section-title {
-            font-size: 18px;
-            font-weight: 600;
-            margin-bottom: 15px;
-            color: #333;
-            border-bottom: 2px solid #007bff;
-            padding-bottom: 8px;
-        }
-        
-        /* 表元信息 */
-        .table-meta {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin-bottom: 20px;
-        }
-        
-        .meta-item {
-            padding: 10px;
-            background: #f8f9fa;
-            border-radius: 4px;
-        }
-        
-        .meta-label {
-            font-size: 12px;
-            color: #666;
-            margin-bottom: 4px;
-        }
-        
-        .meta-value {
-            font-size: 14px;
-            font-weight: 500;
-            color: #333;
-        }
-        
-        /* 字段信息表格 */
-        .columns-table {
+        .sidebar-footer a:hover { text-decoration: underline; }
+        .main { flex: 1; overflow: auto; padding: 12px; }
+        .section-title { padding: 8px 12px; font-weight: bold; color: #666; border-bottom: 1px solid #ddd; }
+        .nav-item { display: block; width: 100%; padding: 8px 12px; text-align: left; border: none; background: none; cursor: pointer; font-size: 14px; }
+        .nav-item:hover { background: #eee; }
+        .nav-item.active { background: #e0e0e0; }
+        .nav-item.loading { color: #999; }
+        .workspace { max-width: 100%; }
+        .workspace h2 { margin-bottom: 10px; font-size: 16px; }
+        .workspace h3 { margin: 16px 0 8px; font-size: 14px; }
+        .form-group { margin-bottom: 10px; }
+        .form-group label { display: block; margin-bottom: 4px; }
+        textarea, input[type=text], input[type=number], select {
             width: 100%;
-            border-collapse: collapse;
-            margin-top: 15px;
-        }
-        
-        .columns-table th {
-            background: #007bff;
-            color: white;
-            padding: 12px;
-            text-align: left;
-            font-weight: 600;
-            font-size: 13px;
-        }
-        
-        .columns-table td {
-            padding: 10px 12px;
-            border-bottom: 1px solid #e9ecef;
-            font-size: 13px;
-        }
-        
-        .columns-table tr:hover {
-            background: #f8f9fa;
-        }
-        
-        .columns-table tr:last-child td {
-            border-bottom: none;
-        }
-        
-        .column-name {
-            font-weight: 600;
-            color: #333;
-        }
-        
-        .column-type {
-            color: #007bff;
-            font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
-            font-size: 12px;
-        }
-        
-        .column-badge {
-            display: inline-block;
-            padding: 2px 8px;
-            border-radius: 12px;
-            font-size: 11px;
-            font-weight: 500;
-            margin-right: 5px;
-        }
-        
-        .badge-pk {
-            background: #ffc107;
-            color: #333;
-        }
-        
-        .badge-notnull {
-            background: #dc3545;
-            color: white;
-        }
-        
-        .badge-default {
-            background: #28a745;
-            color: white;
-        }
-        
-        .column-default-value {
-            font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
-            font-size: 12px;
-            color: #666;
-        }
-        
-        .column-default-null {
-            color: #999;
-            font-style: italic;
-        }
-        
-        .warning {
-            background: #fff3cd;
-            border: 1px solid #ffc107;
-            padding: 12px;
-            border-radius: 4px;
-            margin-top: 10px;
-            display: none;
-        }
-        
-        /* 过滤器 */
-        .filter-section {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-        }
-        
-        .filter-section input {
-            flex: 1;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 14px;
-        }
-        
-        .filter-section button {
-            padding: 10px 20px;
-            background: #007bff;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 14px;
-        }
-        
-        .filter-section button:hover {
-            background: #0056b3;
-        }
-        
-        /* 插入新行 */
-        .insert-form {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 15px;
-        }
-        
-        .form-field {
-            display: flex;
-            flex-direction: column;
-        }
-        
-        .form-field label {
-            font-size: 12px;
-            color: #666;
-            margin-bottom: 5px;
-        }
-        
-        .form-field input {
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 14px;
-        }
-        
-        .insert-actions {
-            margin-top: 15px;
-        }
-        
-        .insert-actions button {
-            padding: 10px 20px;
-            background: #28a745;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 14px;
-        }
-        
-        .insert-actions button:hover {
-            background: #218838;
-        }
-        
-        /* 表内容 */
-        .table-container {
-            overflow-x: auto;
-        }
-        
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 14px;
-        }
-        
-        th, td {
-            border: 1px solid #ddd;
-            padding: 10px;
-            text-align: left;
-        }
-        
-        th {
-            background: #f8f9fa;
-            font-weight: 600;
-            position: sticky;
-            top: 0;
-            cursor: pointer;
-            user-select: none;
-            padding-right: 25px;
-        }
-        
-        th:hover {
-            background: #e9ecef;
-        }
-        
-        th.sortable::after {
-            content: ' ↕';
-            position: absolute;
-            right: 8px;
-            color: #999;
-            font-size: 12px;
-        }
-        
-        th.sort-asc::after {
-            content: ' ↑';
-            color: #007bff;
-        }
-        
-        th.sort-desc::after {
-            content: ' ↓';
-            color: #007bff;
-        }
-        
-        tr:hover {
-            background: #f8f9fa;
-        }
-        
-        tr.editing {
-            background: #fff9e6;
-        }
-        
-        tr.editing td {
-            padding: 5px;
-        }
-        
-        .editable-cell {
-            width: 100%;
-            min-width: 150px;
-            padding: 8px;
-            border: 1px solid #007bff;
-            border-radius: 4px;
-            font-size: 14px;
+            padding: 6px 8px;
+            border: 1px solid #ccc;
             font-family: inherit;
-            resize: vertical;
-            min-height: 60px;
-            line-height: 1.5;
+            font-size: 13px;
+            background: #fff;
         }
-        
-        .editable-cell:focus {
-            outline: none;
-            border-color: #0056b3;
-            box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
-        }
-        
-        .readonly-cell {
-            background: #f8f9fa;
-            color: #666;
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-        }
-        
-        .action-buttons {
-            display: flex;
-            gap: 5px;
-        }
-        
-        .action-buttons button {
-            padding: 5px 10px;
+        textarea { min-height: 80px; resize: vertical; }
+        button.run, button.plain-btn {
+            padding: 6px 12px;
+            background: #333;
+            color: #fff;
             border: none;
-            border-radius: 4px;
             cursor: pointer;
-            font-size: 12px;
-        }
-        
-        .btn-edit {
-            background: #ffc107;
-            color: #333;
-        }
-        
-        .btn-edit:hover {
-            background: #e0a800;
-        }
-        
-        .btn-save {
-            background: #28a745;
-            color: white;
-        }
-        
-        .btn-save:hover {
-            background: #218838;
-        }
-        
-        .btn-cancel {
-            background: #6c757d;
-            color: white;
-        }
-        
-        .btn-cancel:hover {
-            background: #5a6268;
-        }
-        
-        .btn-delete {
-            background: #dc3545;
-            color: white;
-        }
-        
-        .btn-delete:hover {
-            background: #c82333;
-        }
-        
-        .empty-state {
-            text-align: center;
-            padding: 40px;
-            color: #999;
-        }
-        
-        /* 模态框 */
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.5);
-            align-items: center;
-            justify-content: center;
-        }
-        
-        .modal-content {
-            background: white;
-            padding: 30px;
-            border-radius: 8px;
-            max-width: 500px;
-            width: 90%;
-            max-height: 90vh;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-        
-        .modal-header {
-            font-size: 20px;
-            font-weight: 600;
-            margin-bottom: 15px;
-            color: #333;
-            flex-shrink: 0;
-        }
-        
-        .modal-body {
-            margin-bottom: 20px;
-            color: #666;
-            line-height: 1.5;
-            overflow-y: auto;
-            flex: 1;
-            min-height: 0;
-        }
-        
-        .modal-footer {
-            text-align: right;
-            flex-shrink: 0;
-        }
-        
-        .modal-footer button {
-            padding: 10px 20px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 14px;
-            margin-left: 10px;
-        }
-        
-        .btn-primary {
-            background: #007bff;
-            color: white;
-        }
-        
-        .btn-primary:hover {
-            background: #0056b3;
-        }
-        
-        .btn-secondary {
-            background: #6c757d;
-            color: white;
-        }
-        
-        .btn-secondary:hover {
-            background: #5a6268;
-        }
-        
-        .modal.error .modal-header {
-            color: #dc3545;
-        }
-        
-        .modal.success .modal-header {
-            color: #28a745;
-        }
-        
-        /* 设备信息弹窗 */
-        .device-info-modal .modal-content {
-            max-width: 600px;
-        }
-        
-        .device-info-section {
-            margin-bottom: 20px;
-        }
-        
-        .device-info-section-title {
-            font-size: 16px;
-            font-weight: 600;
-            color: #007bff;
-            margin-bottom: 10px;
-            padding-bottom: 5px;
-            border-bottom: 1px solid #e9ecef;
-        }
-        
-        .device-info-item {
-            display: flex;
-            padding: 8px 0;
-            border-bottom: 1px solid #f0f0f0;
-        }
-        
-        .device-info-item:last-child {
-            border-bottom: none;
-        }
-        
-        .device-info-label {
-            font-weight: 500;
-            color: #666;
-            min-width: 120px;
             font-size: 13px;
         }
-        
-        .device-info-value {
-            flex: 1;
-            color: #333;
-            font-size: 13px;
-            word-break: break-all;
-        }
-        
-        .device-info-ip-list {
-            margin-top: 5px;
-        }
-        
-        .device-info-ip-item {
-            padding: 4px 8px;
-            background: #f8f9fa;
-            border-radius: 4px;
-            margin-bottom: 4px;
+        button.run:hover, button.plain-btn:hover { background: #555; }
+        button.small-btn {
+            padding: 3px 8px;
+            border: 1px solid #999;
+            background: #fff;
+            cursor: pointer;
             font-size: 12px;
-            font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
-        }
-        
-        .device-info-ip-item .ip-type {
-            display: inline-block;
-            padding: 2px 6px;
-            background: #007bff;
-            color: white;
-            border-radius: 3px;
-            font-size: 10px;
             margin-right: 6px;
         }
-        
-        /* 数据库信息弹窗 */
-        .database-info-modal .modal-content {
-            max-width: 800px;
-            max-height: 90vh;
+        .result-box {
+            margin-top: 12px;
+            border: 1px solid #ccc;
+            padding: 10px;
+            background: #fff;
+            overflow-x: auto;
         }
-        
-        .database-info-section {
-            margin-bottom: 24px;
-            padding-bottom: 20px;
-            border-bottom: 1px solid #e0e0e0;
-        }
-        
-        .database-info-section:last-child {
-            border-bottom: none;
-            margin-bottom: 0;
-            padding-bottom: 0;
-        }
-        
-        .database-info-section-title {
-            font-size: 16px;
-            font-weight: 600;
-            color: #333;
-            margin-bottom: 12px;
-            padding-bottom: 8px;
-            border-bottom: 2px solid #007bff;
-        }
-        
-        .database-info-item {
-            display: flex;
-            align-items: flex-start;
+        .result-box.error { border-color: #c00; background: #fff5f5; }
+        .result-box pre { white-space: pre-wrap; word-break: break-all; }
+        table.data-table { border-collapse: collapse; width: 100%; margin-top: 8px; }
+        table.data-table th, table.data-table td { border: 1px solid #ccc; padding: 6px 8px; text-align: left; vertical-align: top; }
+        table.data-table th { background: #f0f0f0; }
+        .meta { color: #666; font-size: 12px; margin-bottom: 8px; }
+        .pagination { margin-top: 10px; display: flex; align-items: center; gap: 8px; }
+        .schema-ddl {
             margin-bottom: 10px;
-            line-height: 1.6;
-        }
-        
-        .database-info-label {
-            font-weight: 500;
-            color: #666;
-            min-width: 140px;
-            flex-shrink: 0;
-        }
-        
-        .database-info-value {
-            color: #333;
-            flex: 1;
-            word-break: break-word;
-        }
-        
-        .database-info-path {
-            font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
-            font-size: 11px;
-            color: #555;
-            word-break: break-all;
-            background: #f8f9fa;
             padding: 8px;
-            border-radius: 4px;
-            border: 1px solid #e0e0e0;
+            border: 1px solid #ddd;
+            background: #f9f9f9;
+            font-family: ui-monospace, monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            word-break: break-all;
         }
-        
-        .integrity-ok {
-            color: #28a745;
-            font-weight: 500;
+        .empty { color: #999; padding: 12px; }
+        .toolbar { display: grid; grid-template-columns: 1fr 120px 120px 100px; gap: 8px; margin-bottom: 8px; }
+        .insert-grid { display: grid; grid-template-columns: repeat(2, minmax(220px, 1fr)); gap: 10px; }
+        .muted { color: #888; font-size: 12px; }
+        .row-actions { min-width: 126px; white-space: nowrap; }
+        .status-line { margin-top: 8px; font-size: 12px; color: #444; }
+        .modal-mask {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.35);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+            z-index: 999;
         }
-        
-        .integrity-error {
-            color: #dc3545;
-            font-weight: 500;
+        .modal {
+            width: min(860px, 100%);
+            max-height: 90vh;
+            overflow: auto;
+            background: #fff;
+            border: 1px solid #bbb;
+            padding: 12px;
+        }
+        .modal-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+        .modal-close {
+            border: 1px solid #999;
+            background: #fff;
+            padding: 4px 8px;
+            cursor: pointer;
+            font-size: 12px;
         }
     </style>
 </head>
 <body>
-    <!-- 左侧边栏 -->
-    <div class="sidebar">
-        <div class="sidebar-header">
-            <h1>SQLite REST
-                <a href="https://github.com/weirui-kong/SQLiteREST" target="_blank" rel="noopener noreferrer" class="github-link" title="View on GitHub">
-                    <svg viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true">
-                        <path fill-rule="evenodd" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path>
-                    </svg>
-                </a>
-            </h1>
-            <div class="button-group">
-                <button onclick="loadTables()">刷新</button>
-                <button onclick="showDeviceInfo()">设备信息</button>
-                <button onclick="showDatabaseInfo()">数据库</button>
+    <div class="layout">
+        <aside class="sidebar">
+            <div class="sidebar-scroll">
+                <div class="section-title">Info</div>
+                <button type="button" class="nav-item" data-view="info">System / DB Info</button>
+                <div class="section-title">SQL</div>
+                <button type="button" class="nav-item active" data-view="sql">Execute SQL</button>
+                <div class="section-title">Tables</div>
+                <div id="table-list"></div>
             </div>
-        </div>
-        <div class="table-list" id="tableList">
-            <div class="empty-state">加载中...</div>
-        </div>
-    </div>
-    
-    <!-- 右侧工作区 -->
-    <div class="workspace">
-        <div class="workspace-content" id="workspaceContent">
-            <div class="empty-state">请从左侧选择一个表或视图</div>
-        </div>
-    </div>
-    
-    <!-- 模态框 -->
-    <div class="modal" id="modal">
-        <div class="modal-content">
-            <div class="modal-header" id="modalHeader"></div>
-            <div class="modal-body" id="modalBody"></div>
-            <div class="modal-footer">
-                <button class="btn-primary" onclick="closeModal()">确定</button>
+            <div class="sidebar-footer">
+                <a href="https://github.com/weirui-kong/SQLiteREST" target="_blank" rel="noopener noreferrer">GitHub: weirui-kong/SQLiteREST</a>
             </div>
+        </aside>
+        <main class="main">
+            <div id="workspace" class="workspace"></div>
+        </main>
+    </div>
+    <div id="edit-modal-mask" class="modal-mask" aria-hidden="true">
+        <div class="modal" role="dialog" aria-modal="true" aria-label="Edit Row">
+            <div class="modal-head">
+                <span id="edit-modal-title">Edit Row</span>
+                <button type="button" id="edit-modal-close" class="modal-close">Close</button>
+            </div>
+            <div id="edit-modal-body"></div>
+            <div id="edit-modal-status" class="status-line"></div>
         </div>
     </div>
 
     <script>
-        let tables = [];
-        let currentTable = null;
-        let currentRows = [];
-        let currentColumns = [];
-        let editingRowIdx = null; // 正在编辑的行索引
-        let sortColumn = null; // 当前排序列名
-        let sortDirection = null; // 排序方向: 'asc' 或 'desc'
-        
-        // 检查表是否可以编辑（必须有 rowid 且不是视图）
-        function canEditTable() {
-            return currentTable && 
-                   currentTable.hasRowId && 
-                   currentTable.type !== 'view';
+        const API = '/api/v1';
+        const state = {
+            tableName: null,
+            schema: null,
+            page: 1,
+            perPage: 50,
+            sort: 'rowid',
+            order: 'ASC',
+            editingRowid: null
+        };
+
+        function api(path, options) {
+            return fetch(API + path, options).then(r => r.json());
         }
 
-        async function loadTables() {
-            try {
-                const res = await fetch('/api/tables');
-                const data = await res.json();
-                if (data.ok) {
-                    tables = data.data;
-                    renderTableList();
-                } else {
-                    showModal('错误', '加载表列表失败: ' + data.error, 'error');
-                }
-            } catch (e) {
-                showModal('错误', '加载表列表失败: ' + e.message, 'error');
-            }
+        function get(path) {
+            return api(path);
         }
 
-        function renderTableList() {
-            const container = document.getElementById('tableList');
-            if (tables.length === 0) {
-                container.innerHTML = '<div class="empty-state">没有找到表或视图</div>';
-                return;
-            }
-            
-            container.innerHTML = tables.map(table => `
-                <div class="table-item" onclick="selectTable('${table.name}')">
-                    <div class="table-name">${escapeHtml(table.name)}</div>
-                    <div class="table-type">${table.type === 'view' ? '视图' : '表'}</div>
-                </div>
-            `).join('');
-        }
-
-        function selectTable(tableName) {
-            const table = tables.find(t => t.name === tableName);
-            if (!table) return;
-            
-            currentTable = table;
-            
-            // 重置排序状态
-            sortColumn = null;
-            sortDirection = null;
-            
-            // 更新选中状态
-            document.querySelectorAll('.table-item').forEach(item => {
-                item.classList.remove('active');
-            });
-            event.currentTarget.classList.add('active');
-            
-            renderWorkspace();
-        }
-
-        function renderWorkspace() {
-            if (!currentTable) return;
-            
-            const container = document.getElementById('workspaceContent');
-            container.innerHTML = `
-                <!-- 表元信息 -->
-                <div class="section">
-                    <div class="section-title">表元信息</div>
-                    <div class="table-meta">
-                        <div class="meta-item">
-                            <div class="meta-label">表名</div>
-                            <div class="meta-value">${escapeHtml(currentTable.name)}</div>
-                        </div>
-                        <div class="meta-item">
-                            <div class="meta-label">类型</div>
-                            <div class="meta-value">${currentTable.type === 'view' ? '视图' : '表'}</div>
-                        </div>
-                        <div class="meta-item">
-                            <div class="meta-label">列数</div>
-                            <div class="meta-value">${currentTable.columns ? currentTable.columns.length : 0}</div>
-                        </div>
-                        <div class="meta-item">
-                            <div class="meta-label">主键</div>
-                            <div class="meta-value">${currentTable.primaryKey && currentTable.primaryKey.length > 0 ? currentTable.primaryKey.join(', ') : '无'}</div>
-                        </div>
-                        <div class="meta-item">
-                            <div class="meta-label">支持 ROWID</div>
-                            <div class="meta-value">${currentTable.hasRowId ? '是' : '否'}</div>
-                        </div>
-                    </div>
-                    ${currentTable.columns && currentTable.columns.length > 0 ? `
-                    <table class="columns-table">
-                        <thead>
-                            <tr>
-                                <th>字段名</th>
-                                <th>类型</th>
-                                <th>配置</th>
-                                <th>默认值</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${currentTable.columns.map(col => {
-                                const badges = [];
-                                const pk = col.pk !== undefined ? (typeof col.pk === 'number' ? col.pk : parseInt(col.pk) || 0) : 0;
-                                const notnull = col.notnull !== undefined ? (typeof col.notnull === 'number' ? col.notnull : parseInt(col.notnull) || 0) : 0;
-                                
-                                if (pk > 0) {
-                                    badges.push('<span class="column-badge badge-pk">主键</span>');
-                                }
-                                if (notnull > 0) {
-                                    badges.push('<span class="column-badge badge-notnull">非空</span>');
-                                }
-                                
-                                let defaultDisplay = '<span class="column-default-null">NULL</span>';
-                                if (col.default !== null && col.default !== undefined && col.default !== 'null' && String(col.default).toLowerCase() !== 'null') {
-                                    defaultDisplay = `<span class="column-default-value">${escapeHtml(String(col.default))}</span>`;
-                                }
-                                
-                                return `
-                                    <tr>
-                                        <td class="column-name">${escapeHtml(col.name)}</td>
-                                        <td class="column-type">${escapeHtml(col.type || 'TEXT')}</td>
-                                        <td>${badges.join('') || '<span style="color: #999;">-</span>'}</td>
-                                        <td>${defaultDisplay}</td>
-                                    </tr>
-                                `;
-                            }).join('')}
-                        </tbody>
-                    </table>
-                    ` : ''}
-                    <div class="warning" id="warning" style="display:${canEditTable() ? 'none' : 'block'}">
-                        ⚠️ ${currentTable.type === 'view' ? '视图只能查看数据，无法修改。' : '此表不支持 ROWID，只能查看数据，无法修改。'}
-                    </div>
-                </div>
-                
-                <!-- 过滤器 -->
-                <div class="section">
-                    <div class="section-title">过滤器</div>
-                    <div class="filter-section">
-                        <input type="text" id="filter" placeholder="例如: age > 18 AND name LIKE '%John%'">
-                        <button onclick="loadRows()">加载数据</button>
-                    </div>
-                </div>
-                
-                <!-- 插入新行 -->
-                ${canEditTable() ? `
-                <div class="section">
-                    <div class="section-title">插入新行</div>
-                    <div class="insert-form" id="insertForm"></div>
-                    <div class="insert-actions">
-                        <button onclick="insertRow()">插入</button>
-                    </div>
-                </div>
-                ` : ''}
-                
-                <!-- 表内容 -->
-                <div class="section">
-                    <div class="section-title">表内容</div>
-                    <div class="table-container" id="rowsContainer">
-                        <div class="empty-state">加载中...</div>
-                    </div>
-                </div>
-            `;
-            
-            if (canEditTable()) {
-                buildInsertForm();
-            }
-            
-            loadRows();
-        }
-
-        async function loadRows() {
-            if (!currentTable) return;
-            
-            const filterInput = document.getElementById('filter');
-            const filter = filterInput ? filterInput.value : '';
-            const container = document.getElementById('rowsContainer');
-            
-            if (container) {
-                container.innerHTML = '<div class="empty-state">加载中...</div>';
-            }
-            
-            try {
-                const body = filter ? { filter: filter } : {};
-                const res = await fetch(`/api/table/${currentTable.name}/rows`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(body)
-                });
-                const data = await res.json();
-                if (data.ok) {
-                    currentColumns = data.data.columns;
-                    currentRows = data.data.rows;
-                    displayRows();
-                } else {
-                    showModal('错误', '加载数据失败: ' + data.error, 'error');
-                    if (container) {
-                        container.innerHTML = '<div class="empty-state">加载失败</div>';
-                    }
-                }
-            } catch (e) {
-                showModal('错误', '加载数据失败: ' + e.message, 'error');
-                if (container) {
-                    container.innerHTML = '<div class="empty-state">加载失败</div>';
-                }
-            }
-        }
-
-        function sortByColumn(column) {
-            if (sortColumn === column) {
-                // 如果点击的是当前排序列，切换排序方向
-                if (sortDirection === 'asc') {
-                    sortDirection = 'desc';
-                } else if (sortDirection === 'desc') {
-                    // 再次点击取消排序
-                    sortColumn = null;
-                    sortDirection = null;
-                }
-            } else {
-                // 点击新列，设置为升序
-                sortColumn = column;
-                sortDirection = 'asc';
-            }
-            displayRows();
-        }
-
-        function displayRows() {
-            const container = document.getElementById('rowsContainer');
-            if (!container) return;
-            
-            if (currentRows.length === 0) {
-                container.innerHTML = '<div class="empty-state">没有找到数据</div>';
-                return;
-            }
-            
-            // 应用排序
-            let sortedRows = [...currentRows];
-            if (sortColumn !== null && sortDirection !== null) {
-                const colIdx = currentColumns.indexOf(sortColumn);
-                if (colIdx >= 0) {
-                    sortedRows.sort((a, b) => {
-                        const valA = a[colIdx];
-                        const valB = b[colIdx];
-                        
-                        // 处理 null/undefined
-                        if (valA === null || valA === undefined) return 1;
-                        if (valB === null || valB === undefined) return -1;
-                        
-                        // 尝试数字比较
-                        const numA = parseFloat(valA);
-                        const numB = parseFloat(valB);
-                        if (!isNaN(numA) && !isNaN(numB)) {
-                            return sortDirection === 'asc' ? numA - numB : numB - numA;
-                        }
-                        
-                        // 字符串比较
-                        const strA = String(valA).toLowerCase();
-                        const strB = String(valB).toLowerCase();
-                        if (sortDirection === 'asc') {
-                            return strA < strB ? -1 : strA > strB ? 1 : 0;
-                        } else {
-                            return strA > strB ? -1 : strA < strB ? 1 : 0;
-                        }
-                    });
-                }
-            }
-            
-            let html = '<table><thead><tr>';
-            currentColumns.forEach(col => {
-                let sortClass = 'sortable';
-                if (sortColumn === col) {
-                    sortClass += sortDirection === 'asc' ? ' sort-asc' : ' sort-desc';
-                }
-                html += `<th class="${sortClass}" onclick="sortByColumn('${escapeHtml(col)}')">${escapeHtml(col)}</th>`;
-            });
-            if (canEditTable()) {
-                html += '<th>操作</th>';
-            }
-            html += '</tr></thead><tbody>';
-            
-            sortedRows.forEach((row, idx) => {
-                // 需要找到原始索引以保持编辑功能
-                const originalIdx = currentRows.indexOf(row);
-                const isEditing = editingRowIdx === originalIdx;
-                html += `<tr class="${isEditing ? 'editing' : ''}">`;
-                
-                currentColumns.forEach((col, colIdx) => {
-                    const colName = col;
-                    const isPrimaryKey = currentTable.primaryKey && Array.isArray(currentTable.primaryKey) && currentTable.primaryKey.includes(colName);
-                    const cellValue = String(row[colIdx] ?? '');
-                    
-                    if (isEditing) {
-                        if (isPrimaryKey) {
-                            // 主键列显示为只读
-                            html += `<td><div class="readonly-cell">${escapeHtml(cellValue)}</div></td>`;
-                        } else {
-                            // 非主键列显示为可编辑的多行 textarea
-                            html += `<td><textarea class="editable-cell" id="edit_${originalIdx}_${colIdx}" data-col="${escapeHtml(colName)}" rows="3">${escapeHtml(cellValue)}</textarea></td>`;
-                        }
-                    } else {
-                        html += `<td>${escapeHtml(cellValue)}</td>`;
-                    }
-                });
-                
-                if (canEditTable()) {
-                    if (isEditing) {
-                        html += `<td>
-                            <div class="action-buttons">
-                                <button class="btn-save" onclick="saveRow(${originalIdx})">保存</button>
-                                <button class="btn-cancel" onclick="cancelEdit()">取消</button>
-                            </div>
-                        </td>`;
-                    } else {
-                        html += `<td>
-                            <div class="action-buttons">
-                                <button class="btn-edit" onclick="editRow(${originalIdx})">编辑</button>
-                                <button class="btn-delete" onclick="deleteRow(${originalIdx})">删除</button>
-                            </div>
-                        </td>`;
-                    }
-                }
-                html += '</tr>';
-            });
-            
-            html += '</tbody></table>';
-            container.innerHTML = html;
-        }
-
-        function buildInsertForm() {
-            const form = document.getElementById('insertForm');
-            if (!form) return;
-            
-            form.innerHTML = '';
-            currentTable.columns.forEach(col => {
-                if (col.pk === 0) {
-                    const div = document.createElement('div');
-                    div.className = 'form-field';
-                    div.innerHTML = `
-                        <label>${escapeHtml(col.name)} (${col.type})</label>
-                        <input type="text" id="insert_${col.name}" placeholder="输入值">
-                    `;
-                    form.appendChild(div);
-                }
+        function post(path, body) {
+            return api(path, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
             });
         }
 
-        async function insertRow() {
-            if (!canEditTable()) return;
-            
-            const row = {};
-            currentTable.columns.forEach(col => {
-                if (col.pk === 0) {
-                    const input = document.getElementById(`insert_${col.name}`);
-                    if (input && input.value) {
-                        row[col.name] = input.value;
-                    }
-                }
+        function put(path, body) {
+            return api(path, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
             });
-            
-            try {
-                const res = await fetch(`/api/table/${currentTable.name}/insert`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ row: row })
-                });
-                const data = await res.json();
-                if (data.ok) {
-                    showModal('成功', '行插入成功', 'success');
-                    loadRows();
-                    // 清空表单
-                    currentTable.columns.forEach(col => {
-                        if (col.pk === 0) {
-                            const input = document.getElementById(`insert_${col.name}`);
-                            if (input) input.value = '';
-                        }
-                    });
-                } else {
-                    showModal('错误', '插入失败: ' + data.error, 'error');
-                }
-            } catch (e) {
-                showModal('错误', '插入失败: ' + e.message, 'error');
-            }
         }
 
-        function editRow(rowIdx) {
-            if (!canEditTable()) return;
-            
-            // 如果已经在编辑其他行，先取消
-            if (editingRowIdx !== null && editingRowIdx !== rowIdx) {
-                cancelEdit();
-            }
-            
-            editingRowIdx = rowIdx;
-            displayRows();
-        }
-        
-        function cancelEdit() {
-            if (editingRowIdx === null) return;
-            editingRowIdx = null;
-            displayRows();
-        }
-        
-        async function saveRow(rowIdx) {
-            if (!canEditTable()) return;
-            if (editingRowIdx !== rowIdx) return;
-            
-            const row = currentRows[rowIdx];
-            const primaryKey = {};
-            if (currentTable.primaryKey && Array.isArray(currentTable.primaryKey)) {
-                currentTable.primaryKey.forEach(pk => {
-                    const colIdx = currentColumns.indexOf(pk);
-                    if (colIdx >= 0) {
-                        primaryKey[pk] = row[colIdx];
-                    }
-                });
-            }
-            
-            // 从所有 textarea 中读取新值
-            const newValues = {};
-            currentColumns.forEach((colName, colIdx) => {
-                const isPrimaryKey = currentTable.primaryKey && Array.isArray(currentTable.primaryKey) && currentTable.primaryKey.includes(colName);
-                if (!isPrimaryKey) {
-                    const textarea = document.getElementById(`edit_${rowIdx}_${colIdx}`);
-                    if (textarea) {
-                        newValues[colName] = textarea.value;
-                    }
-                }
-            });
-            
-            // 调用更新 API
-            await updateRow(primaryKey, newValues);
+        function del(path) {
+            return api(path, { method: 'DELETE' });
         }
 
-        async function updateRow(primaryKey, newValues) {
-            if (!canEditTable()) return;
-            
-            try {
-                const res = await fetch(`/api/table/${currentTable.name}/update`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ primaryKey: primaryKey, newValues: newValues })
-                });
-                const data = await res.json();
-                if (data.ok) {
-                    editingRowIdx = null; // 清除编辑状态
-                    showModal('成功', '行更新成功', 'success');
-                    loadRows();
-                } else {
-                    showModal('错误', '更新失败: ' + data.error, 'error');
-                }
-            } catch (e) {
-                showModal('错误', '更新失败: ' + e.message, 'error');
-            }
-        }
-
-        async function deleteRow(rowIdx) {
-            if (!canEditTable()) return;
-            
-            if (!confirm('确定要删除这一行吗？')) return;
-            
-            const row = currentRows[rowIdx];
-            const primaryKey = {};
-            if (currentTable.primaryKey && Array.isArray(currentTable.primaryKey)) {
-                currentTable.primaryKey.forEach(pk => {
-                    const colIdx = currentColumns.indexOf(pk);
-                    if (colIdx >= 0) {
-                        primaryKey[pk] = row[colIdx];
-                    }
-                });
-            }
-            
-            try {
-                const res = await fetch(`/api/table/${currentTable.name}/delete`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ primaryKey: primaryKey })
-                });
-                const data = await res.json();
-                if (data.ok) {
-                    showModal('成功', '行删除成功', 'success');
-                    loadRows();
-                } else {
-                    showModal('错误', '删除失败: ' + data.error, 'error');
-                }
-            } catch (e) {
-                showModal('错误', '删除失败: ' + e.message, 'error');
-            }
-        }
-
-        function showModal(title, message, type = '') {
-            const modal = document.getElementById('modal');
-            const header = document.getElementById('modalHeader');
-            const body = document.getElementById('modalBody');
-            
-            modal.className = 'modal ' + type;
-            header.textContent = title;
-            body.textContent = message;
-            modal.style.display = 'flex';
-        }
-
-        function closeModal() {
-            const modal = document.getElementById('modal');
-            modal.style.display = 'none';
-        }
-
-        async function showDeviceInfo() {
-            try {
-                const res = await fetch('/api/device/info');
-                const data = await res.json();
-                if (data.ok) {
-                    const deviceInfo = data.data;
-                    const networkInfo = deviceInfo.network || {};
-                    
-                    let html = '<div class="device-info-modal">';
-                    
-                    // 设备基础信息
-                    html += '<div class="device-info-section">';
-                    html += '<div class="device-info-section-title">设备信息</div>';
-                    html += `<div class="device-info-item"><span class="device-info-label">设备名称:</span><span class="device-info-value">${escapeHtml(deviceInfo.deviceName || 'Unknown')}</span></div>`;
-                    html += `<div class="device-info-item"><span class="device-info-label">设备型号:</span><span class="device-info-value">${escapeHtml(deviceInfo.model || 'Unknown')}</span></div>`;
-                    html += `<div class="device-info-item"><span class="device-info-label">系统名称:</span><span class="device-info-value">${escapeHtml(deviceInfo.systemName || 'Unknown')}</span></div>`;
-                    html += `<div class="device-info-item"><span class="device-info-label">系统版本:</span><span class="device-info-value">${escapeHtml(deviceInfo.systemVersion || 'Unknown')}</span></div>`;
-                    html += `<div class="device-info-item"><span class="device-info-label">设备ID:</span><span class="device-info-value">${escapeHtml(deviceInfo.identifierForVendor || 'Unknown')}</span></div>`;
-                    html += '</div>';
-                    
-                    // 网络信息
-                    html += '<div class="device-info-section">';
-                    html += '<div class="device-info-section-title">网络信息</div>';
-                    html += `<div class="device-info-item"><span class="device-info-label">服务器URL:</span><span class="device-info-value">${escapeHtml(networkInfo.serverURL || 'Unknown')}</span></div>`;
-                    html += `<div class="device-info-item"><span class="device-info-label">主机地址:</span><span class="device-info-value">${escapeHtml(networkInfo.host || 'Unknown')}</span></div>`;
-                    html += `<div class="device-info-item"><span class="device-info-label">端口:</span><span class="device-info-value">${networkInfo.port || 0}</span></div>`;
-                    html += `<div class="device-info-item"><span class="device-info-label">主要IP:</span><span class="device-info-value">${escapeHtml(networkInfo.primaryIP || 'Not available')}</span></div>`;
-                    
-                    // IP地址列表
-                    if (networkInfo.ipAddresses && networkInfo.ipAddresses.length > 0) {
-                        html += '<div class="device-info-item" style="flex-direction: column; align-items: flex-start;">';
-                        html += '<span class="device-info-label" style="margin-bottom: 5px;">所有IP地址:</span>';
-                        html += '<div class="device-info-ip-list">';
-                        networkInfo.ipAddresses.forEach(ipInfo => {
-                            html += `<div class="device-info-ip-item">`;
-                            html += `<span class="ip-type">${escapeHtml(ipInfo.type || 'IP')}</span>`;
-                            html += `<strong>${escapeHtml(ipInfo.interface || 'Unknown')}:</strong> `;
-                            html += `<span>${escapeHtml(ipInfo.ip || 'Unknown')}</span>`;
-                            html += `</div>`;
-                        });
-                        html += '</div>';
-                        html += '</div>';
-                    } else {
-                        html += `<div class="device-info-item"><span class="device-info-label">IP地址:</span><span class="device-info-value">Not available</span></div>`;
-                    }
-                    
-                    html += '</div>';
-                    html += '</div>';
-                    
-                    const modal = document.getElementById('modal');
-                    const header = document.getElementById('modalHeader');
-                    const body = document.getElementById('modalBody');
-                    
-                    modal.className = 'modal device-info-modal';
-                    header.textContent = '设备信息';
-                    body.innerHTML = html;
-                    modal.style.display = 'flex';
-                } else {
-                    showModal('错误', '获取设备信息失败: ' + data.error, 'error');
-                }
-            } catch (e) {
-                showModal('错误', '获取设备信息失败: ' + e.message, 'error');
-            }
-        }
-
-        async function showDatabaseInfo() {
-            try {
-                const res = await fetch('/api/database/info');
-                const data = await res.json();
-                if (data.ok) {
-                    const dbInfo = data.data;
-                    
-                    let html = '<div class="database-info-modal">';
-                    
-                    // 数据库文件信息
-                    html += '<div class="database-info-section">';
-                    html += '<div class="database-info-section-title">数据库文件</div>';
-                    if (dbInfo.path) {
-                        html += '<div class="database-info-item"><span class="database-info-label">沙盒路径:</span><div class="database-info-value"><div class="database-info-path">' + escapeHtml(dbInfo.path) + '</div></div></div>';
-                    }
-                    if (dbInfo.fileSizeFormatted) {
-                        html += `<div class="database-info-item"><span class="database-info-label">文件大小:</span><span class="database-info-value">${escapeHtml(dbInfo.fileSizeFormatted)}</span></div>`;
-                    }
-                    if (dbInfo.databaseSizeFormatted) {
-                        html += `<div class="database-info-item"><span class="database-info-label">数据库大小:</span><span class="database-info-value">${escapeHtml(dbInfo.databaseSizeFormatted)}</span></div>`;
-                    }
-                    if (dbInfo.lastModified) {
-                        html += `<div class="database-info-item"><span class="database-info-label">最后修改:</span><span class="database-info-value">${escapeHtml(dbInfo.lastModified)}</span></div>`;
-                    }
-                    html += '</div>';
-                    
-                    // SQLite 版本信息
-                    html += '<div class="database-info-section">';
-                    html += '<div class="database-info-section-title">SQLite 信息</div>';
-                    html += `<div class="database-info-item"><span class="database-info-label">SQLite 版本:</span><span class="database-info-value">${escapeHtml(dbInfo.sqliteVersion || 'Unknown')}</span></div>`;
-                    if (dbInfo.encoding) {
-                        html += `<div class="database-info-item"><span class="database-info-label">编码:</span><span class="database-info-value">${escapeHtml(dbInfo.encoding)}</span></div>`;
-                    }
-                    html += '</div>';
-                    
-                    // 数据库配置
-                    html += '<div class="database-info-section">';
-                    html += '<div class="database-info-section-title">数据库配置</div>';
-                    if (dbInfo.pageSize) {
-                        html += `<div class="database-info-item"><span class="database-info-label">页面大小:</span><span class="database-info-value">${dbInfo.pageSize.toLocaleString()} bytes</span></div>`;
-                    }
-                    if (dbInfo.pageCount) {
-                        html += `<div class="database-info-item"><span class="database-info-label">页面数量:</span><span class="database-info-value">${dbInfo.pageCount.toLocaleString()}</span></div>`;
-                    }
-                    if (dbInfo.userVersion !== undefined) {
-                        html += `<div class="database-info-item"><span class="database-info-label">用户版本:</span><span class="database-info-value">${dbInfo.userVersion}</span></div>`;
-                    }
-                    if (dbInfo.applicationId !== undefined) {
-                        html += `<div class="database-info-item"><span class="database-info-label">应用ID:</span><span class="database-info-value">${dbInfo.applicationId} (0x${dbInfo.applicationId.toString(16).toUpperCase()})</span></div>`;
-                    }
-                    if (dbInfo.autoVacuum) {
-                        html += `<div class="database-info-item"><span class="database-info-label">自动清理:</span><span class="database-info-value">${escapeHtml(dbInfo.autoVacuum)}</span></div>`;
-                    }
-                    if (dbInfo.foreignKeys !== undefined) {
-                        html += `<div class="database-info-item"><span class="database-info-label">外键约束:</span><span class="database-info-value">${dbInfo.foreignKeys ? '启用' : '禁用'}</span></div>`;
-                    }
-                    if (dbInfo.journalMode) {
-                        html += `<div class="database-info-item"><span class="database-info-label">日志模式:</span><span class="database-info-value">${escapeHtml(dbInfo.journalMode)}</span></div>`;
-                    }
-                    if (dbInfo.synchronous) {
-                        html += `<div class="database-info-item"><span class="database-info-label">同步模式:</span><span class="database-info-value">${escapeHtml(dbInfo.synchronous)}</span></div>`;
-                    }
-                    if (dbInfo.cacheSize !== undefined) {
-                        html += `<div class="database-info-item"><span class="database-info-label">缓存大小:</span><span class="database-info-value">${dbInfo.cacheSize.toLocaleString()} pages</span></div>`;
-                    }
-                    if (dbInfo.tempStore) {
-                        html += `<div class="database-info-item"><span class="database-info-label">临时存储:</span><span class="database-info-value">${escapeHtml(dbInfo.tempStore)}</span></div>`;
-                    }
-                    html += '</div>';
-                    
-                    // 统计信息
-                    html += '<div class="database-info-section">';
-                    html += '<div class="database-info-section-title">统计信息</div>';
-                    html += `<div class="database-info-item"><span class="database-info-label">表数量:</span><span class="database-info-value">${dbInfo.tableCount || 0}</span></div>`;
-                    html += `<div class="database-info-item"><span class="database-info-label">索引数量:</span><span class="database-info-value">${dbInfo.indexCount || 0}</span></div>`;
-                    html += `<div class="database-info-item"><span class="database-info-label">触发器数量:</span><span class="database-info-value">${dbInfo.triggerCount || 0}</span></div>`;
-                    html += `<div class="database-info-item"><span class="database-info-label">视图数量:</span><span class="database-info-value">${dbInfo.viewCount || 0}</span></div>`;
-                    html += '</div>';
-                    
-                    // 完整性检查
-                    html += '<div class="database-info-section">';
-                    html += '<div class="database-info-section-title">完整性检查</div>';
-                    if (dbInfo.integrityCheck !== undefined) {
-                        const integrityOk = dbInfo.integrityOk !== false;
-                        html += `<div class="database-info-item"><span class="database-info-label">完整性检查:</span><span class="database-info-value ${integrityOk ? 'integrity-ok' : 'integrity-error'}">${escapeHtml(dbInfo.integrityCheck)}</span></div>`;
-                    }
-                    if (dbInfo.quickCheck !== undefined) {
-                        const quickCheckOk = dbInfo.quickCheckOk !== false;
-                        html += `<div class="database-info-item"><span class="database-info-label">快速检查:</span><span class="database-info-value ${quickCheckOk ? 'integrity-ok' : 'integrity-error'}">${escapeHtml(dbInfo.quickCheck)}</span></div>`;
-                    }
-                    html += '</div>';
-                    
-                    html += '</div>';
-                    
-                    const modal = document.getElementById('modal');
-                    const header = document.getElementById('modalHeader');
-                    const body = document.getElementById('modalBody');
-                    
-                    modal.className = 'modal database-info-modal';
-                    header.textContent = '数据库信息';
-                    body.innerHTML = html;
-                    modal.style.display = 'flex';
-                } else {
-                    showModal('错误', '获取数据库信息失败: ' + data.error, 'error');
-                }
-            } catch (e) {
-                showModal('错误', '获取数据库信息失败: ' + e.message, 'error');
-            }
-        }
-
-        function escapeHtml(text) {
+        function escapeHtml(s) {
+            if (s == null) return '';
             const div = document.createElement('div');
-            div.textContent = text;
+            div.textContent = String(s);
             return div.innerHTML;
         }
 
-        // 点击模态框外部关闭
-        document.getElementById('modal').addEventListener('click', function(e) {
-            if (e.target === this) {
-                closeModal();
-            }
-        });
+        function showError(container, message) {
+            container.classList.add('error');
+            container.innerHTML = '<pre>' + escapeHtml(message) + '</pre>';
+        }
 
-        // 初始化加载
-        loadTables();
+        function setActiveNav(viewId, tableName) {
+            document.querySelectorAll('.sidebar .nav-item').forEach(el => {
+                el.classList.toggle('active', el.dataset.view === viewId && (el.dataset.table || '') === (tableName || ''));
+            });
+        }
+
+        function parseValueByType(raw, typeName) {
+            if (raw === '') return undefined;
+            if (raw.toLowerCase() === 'null') return null;
+            const t = (typeName || '').toUpperCase();
+            if (t.includes('INT')) {
+                const n = Number(raw);
+                return Number.isFinite(n) ? Math.trunc(n) : raw;
+            }
+            if (t.includes('REAL') || t.includes('FLOA') || t.includes('DOUB') || t.includes('NUM')) {
+                const n = Number(raw);
+                return Number.isFinite(n) ? n : raw;
+            }
+            return raw;
+        }
+
+        function renderInfoTable(title, obj) {
+            const rows = Object.keys(obj || {}).map(k => {
+                const v = obj[k];
+                return '<tr><td>' + escapeHtml(k) + '</td><td>' + escapeHtml(v == null ? '' : v) + '</td></tr>';
+            }).join('');
+            return '<h3>' + escapeHtml(title) + '</h3>' +
+                '<table class="data-table"><thead><tr><th>Key</th><th>Value</th></tr></thead><tbody>' + rows + '</tbody></table>';
+        }
+
+        function showInfoView() {
+            setActiveNav('info');
+            const wrap = document.getElementById('workspace');
+            wrap.innerHTML = '<h2>System / Database Info</h2><div id="info-result" class="result-box">Loading...</div>';
+            const box = document.getElementById('info-result');
+            get('/system/info').then(res => {
+                if (!res.success) {
+                    showError(box, (res.error && (res.error.code + ': ' + res.error.message)) || 'Failed to load info');
+                    return;
+                }
+                const data = res.data || {};
+                let html = '';
+                html += renderInfoTable('Database', data.database || {});
+                html += renderInfoTable('Device', data.device || {});
+                html += renderInfoTable('App', data.app || {});
+                box.classList.remove('error');
+                box.innerHTML = html;
+            }).catch(e => {
+                showError(box, e.message || 'Failed to load info');
+            });
+        }
+
+        // ---------------- Left: table list ----------------
+        function loadTableList() {
+            const container = document.getElementById('table-list');
+            container.innerHTML = '<button type="button" class="nav-item loading">Loading...</button>';
+            get('/tables').then(res => {
+                if (!res.success) {
+                    container.innerHTML = '<span class="empty" style="padding:8px 12px;color:#c00;">Failed to load tables</span>';
+                    return;
+                }
+                container.innerHTML = '';
+                const tables = res.data || [];
+                tables.forEach(t => {
+                    const b = document.createElement('button');
+                    b.type = 'button';
+                    b.className = 'nav-item';
+                    b.textContent = t.name;
+                    b.dataset.view = 'table';
+                    b.dataset.table = t.name;
+                    b.onclick = () => selectTable(t.name);
+                    container.appendChild(b);
+                });
+                if (tables.length === 0) {
+                    container.innerHTML = '<span class="empty" style="padding:8px 12px;display:block;">No tables</span>';
+                }
+            }).catch(e => {
+                container.innerHTML = '<span class="empty" style="padding:8px 12px;color:#c00;">' + escapeHtml(e.message) + '</span>';
+            });
+        }
+
+        // ---------------- Right: SQL view ----------------
+        function showSqlView() {
+            setActiveNav('sql');
+            const wrap = document.getElementById('workspace');
+            wrap.innerHTML =
+                '<h2>Execute SQL</h2>' +
+                '<div class="form-group"><label>SQL (supports ? params)</label><textarea id="sql-text">SELECT * FROM Product LIMIT 10</textarea></div>' +
+                '<div class="form-group"><label>Params JSON array</label><input id="sql-params" type="text" value="[]"></div>' +
+                '<button type="button" class="run" id="sql-run">Run</button>' +
+                '<div id="sql-result" class="result-box"></div>';
+            document.getElementById('sql-run').onclick = runSql;
+        }
+
+        function runSql() {
+            const sql = (document.getElementById('sql-text').value || '').trim();
+            const paramsInput = (document.getElementById('sql-params').value || '').trim();
+            const resultEl = document.getElementById('sql-result');
+            if (!sql) {
+                showError(resultEl, 'SQL is empty');
+                return;
+            }
+
+            let params = [];
+            try {
+                params = paramsInput ? JSON.parse(paramsInput) : [];
+                if (!Array.isArray(params)) params = [];
+            } catch (_e) {
+                showError(resultEl, 'Params must be JSON array');
+                return;
+            }
+
+            resultEl.classList.remove('error');
+            resultEl.innerHTML = 'Running...';
+            post('/db/sql', { sql, params }).then(res => {
+                if (!res.success) {
+                    showError(resultEl, (res.error && (res.error.code + ': ' + res.error.message)) || 'SQL failed');
+                    return;
+                }
+                const data = res.data || {};
+                if (data.type === 'query') {
+                    const cols = data.columns || [];
+                    const rows = data.rows || [];
+                    let html = '';
+                    if (res.meta && res.meta.executionTime != null) {
+                        html += '<div class="meta">Execution time: ' + escapeHtml(res.meta.executionTime) + 's</div>';
+                    }
+                    html += '<table class="data-table"><thead><tr>' + cols.map(c => '<th>' + escapeHtml(c) + '</th>').join('') + '</tr></thead><tbody>';
+                    rows.forEach(row => {
+                        html += '<tr>' + row.map(v => '<td>' + escapeHtml(v == null ? 'NULL' : v) + '</td>').join('') + '</tr>';
+                    });
+                    html += '</tbody></table>';
+                    resultEl.innerHTML = html;
+                } else {
+                    resultEl.innerHTML = '<pre>' +
+                        'type: ' + escapeHtml(data.type || '') + '\n' +
+                        'rowsAffected: ' + escapeHtml(data.rowsAffected || 0) + '\n' +
+                        'lastInsertId: ' + escapeHtml(data.lastInsertId || 0) +
+                        '</pre>';
+                }
+            }).catch(e => {
+                showError(resultEl, e.message || 'Request failed');
+            });
+        }
+
+        // ---------------- Right: Table workspace ----------------
+        function selectTable(tableName) {
+            state.tableName = tableName;
+            state.page = 1;
+            state.perPage = 50;
+            state.sort = 'rowid';
+            state.order = 'ASC';
+            state.editingRowid = null;
+
+            setActiveNav('table', tableName);
+            const wrap = document.getElementById('workspace');
+            wrap.innerHTML = '<h2>Table: ' + escapeHtml(tableName) + '</h2><div id="table-content" class="result-box">Loading schema...</div>';
+            const content = document.getElementById('table-content');
+
+            get('/tables/' + encodeURIComponent(tableName) + '/schema')
+                .then(schemaRes => {
+                    if (!schemaRes.success) {
+                        showError(content, (schemaRes.error && schemaRes.error.message) || 'Failed to load schema');
+                        return;
+                    }
+                    state.schema = schemaRes.data;
+                    renderTableWorkspace(content);
+                    loadRows();
+                })
+                .catch(e => showError(content, e.message || 'Failed to load schema'));
+        }
+
+        function renderTableWorkspace(content) {
+            const schema = state.schema || {};
+            const columns = schema.columns || [];
+
+            const sortOptions = ['rowid'].concat(columns.map(c => c.name))
+                .map(name => '<option value="' + escapeHtml(name) + '"' + (name === state.sort ? ' selected' : '') + '>' + escapeHtml(name) + '</option>')
+                .join('');
+
+            let insertForm = '<h3>Insert Row</h3><form id="insert-form"><div class="insert-grid">';
+            columns.forEach(col => {
+                insertForm += '<div class="form-group">' +
+                    '<label>' + escapeHtml(col.name) + ' <span class="muted">(' + escapeHtml(col.type || 'TEXT') + (col.notnull ? ', NOT NULL' : '') + (col.pk ? ', PK' : '') + ')</span></label>' +
+                    '<input type="text" data-col="' + escapeHtml(col.name) + '" data-type="' + escapeHtml(col.type || '') + '" placeholder="leave empty to skip / type null for NULL">' +
+                    '</div>';
+            });
+            insertForm += '</div><button type="submit" class="plain-btn">Insert</button></form><div id="insert-status" class="status-line"></div>';
+
+            content.classList.remove('error');
+            content.innerHTML =
+                '<div class="schema-ddl">' + escapeHtml(schema.sql || '') + '</div>' +
+                '<h3>Columns</h3>' +
+                '<table class="data-table"><thead><tr><th>cid</th><th>name</th><th>type</th><th>pk</th><th>notnull</th></tr></thead><tbody>' +
+                columns.map(c => '<tr><td>' + escapeHtml(c.cid) + '</td><td>' + escapeHtml(c.name) + '</td><td>' + escapeHtml(c.type) + '</td><td>' + escapeHtml(c.pk) + '</td><td>' + escapeHtml(c.notnull) + '</td></tr>').join('') +
+                '</tbody></table>' +
+                insertForm +
+                '<h3>Rows</h3>' +
+                '<div class="toolbar">' +
+                '<select id="sort-col">' + sortOptions + '</select>' +
+                '<select id="sort-order"><option value="ASC"' + (state.order === 'ASC' ? ' selected' : '') + '>ASC</option><option value="DESC"' + (state.order === 'DESC' ? ' selected' : '') + '>DESC</option></select>' +
+                '<input id="per-page" type="number" min="1" max="500" value="' + escapeHtml(state.perPage) + '">' +
+                '<button id="apply-sort" type="button" class="plain-btn">Apply</button>' +
+                '</div>' +
+                '<div id="rows-meta" class="meta"></div>' +
+                '<div id="rows-section"></div>';
+
+            document.getElementById('apply-sort').onclick = () => {
+                state.sort = document.getElementById('sort-col').value || 'rowid';
+                state.order = document.getElementById('sort-order').value || 'ASC';
+                state.perPage = Math.max(1, Number(document.getElementById('per-page').value || 50));
+                state.page = 1;
+                loadRows();
+            };
+
+            document.getElementById('insert-form').onsubmit = onInsertSubmit;
+        }
+
+        function onInsertSubmit(e) {
+            e.preventDefault();
+            if (!state.tableName || !state.schema) return;
+            const statusEl = document.getElementById('insert-status');
+            const payload = {};
+            const inputs = document.querySelectorAll('#insert-form input[data-col]');
+            inputs.forEach(input => {
+                const col = input.dataset.col;
+                const type = input.dataset.type || '';
+                const raw = (input.value || '').trim();
+                const parsed = parseValueByType(raw, type);
+                if (parsed !== undefined) payload[col] = parsed;
+            });
+
+            post('/tables/' + encodeURIComponent(state.tableName) + '/rows', payload).then(res => {
+                if (!res.success) {
+                    statusEl.textContent = 'Insert failed: ' + ((res.error && res.error.message) || 'Unknown error');
+                    return;
+                }
+                statusEl.textContent = 'Inserted rowid: ' + ((res.data && res.data.rowid) || '');
+                document.querySelectorAll('#insert-form input[data-col]').forEach(i => { i.value = ''; });
+                loadRows();
+            }).catch(err => {
+                statusEl.textContent = 'Insert failed: ' + err.message;
+            });
+        }
+
+        function loadRows() {
+            if (!state.tableName) return;
+            const rowsSection = document.getElementById('rows-section');
+            const rowsMeta = document.getElementById('rows-meta');
+            closeEditModal();
+            rowsSection.innerHTML = 'Loading rows...';
+            rowsMeta.textContent = '';
+
+            const query = '?_page=' + encodeURIComponent(state.page) +
+                '&_per_page=' + encodeURIComponent(state.perPage) +
+                '&_sort=' + encodeURIComponent(state.sort) +
+                '&_order=' + encodeURIComponent(state.order);
+
+            get('/tables/' + encodeURIComponent(state.tableName) + '/rows' + query).then(res => {
+                if (!res.success) {
+                    rowsSection.innerHTML = '<div class="result-box error"><pre>' + escapeHtml((res.error && res.error.message) || 'Load rows failed') + '</pre></div>';
+                    return;
+                }
+
+                const data = res.data || {};
+                const cols = data.columns || [];
+                const rows = data.rows || [];
+                const meta = res.meta || {};
+                const total = Number(meta.total_rows || 0);
+                const page = Number(meta.page || state.page);
+                const perPage = Number(meta.per_page || state.perPage);
+                const totalPages = Math.max(1, Math.ceil(total / perPage));
+
+                rowsMeta.textContent = 'Page ' + page + ' / ' + totalPages + ', total rows: ' + total;
+
+                if (rows.length === 0) {
+                    rowsSection.innerHTML = '<p class="empty">No rows</p>';
+                    return;
+                }
+
+                let html = '<table class="data-table"><thead><tr>' +
+                    cols.map(c => '<th>' + escapeHtml(c) + '</th>').join('') +
+                    '<th>Actions</th></tr></thead><tbody>';
+
+                rows.forEach((row, rowIndex) => {
+                    const rowid = row[0];
+                    html += '<tr data-row-index="' + rowIndex + '">' +
+                        row.map(v => '<td>' + escapeHtml(v == null ? 'NULL' : v) + '</td>').join('') +
+                        '<td class="row-actions">' +
+                        '<button type="button" class="small-btn row-edit" data-rowid="' + escapeHtml(rowid) + '" data-row-index="' + rowIndex + '">Edit</button>' +
+                        '<button type="button" class="small-btn row-del" data-rowid="' + escapeHtml(rowid) + '">Delete</button>' +
+                        '</td></tr>';
+                });
+                html += '</tbody></table>';
+                html += '<div class="pagination">' +
+                    '<button type="button" class="small-btn" id="prev-page"' + (page <= 1 ? ' disabled' : '') + '>Prev</button>' +
+                    '<button type="button" class="small-btn" id="next-page"' + (page >= totalPages ? ' disabled' : '') + '>Next</button>' +
+                    '</div>';
+                rowsSection.innerHTML = html;
+
+                rowsSection.querySelector('#prev-page').onclick = () => {
+                    if (state.page > 1) {
+                        state.page -= 1;
+                        loadRows();
+                    }
+                };
+                rowsSection.querySelector('#next-page').onclick = () => {
+                    if (state.page < totalPages) {
+                        state.page += 1;
+                        loadRows();
+                    }
+                };
+
+                rowsSection.querySelectorAll('.row-edit').forEach(btn => {
+                    btn.onclick = () => {
+                        const rowid = btn.dataset.rowid;
+                        const idx = Number(btn.dataset.rowIndex);
+                        openEditPanel(rowid, cols, rows[idx]);
+                    };
+                });
+
+                rowsSection.querySelectorAll('.row-del').forEach(btn => {
+                    btn.onclick = () => {
+                        const rowid = btn.dataset.rowid;
+                        onDeleteRow(rowid);
+                    };
+                });
+            }).catch(e => {
+                rowsSection.innerHTML = '<div class="result-box error"><pre>' + escapeHtml(e.message || 'Request failed') + '</pre></div>';
+            });
+        }
+
+        function closeEditModal() {
+            const mask = document.getElementById('edit-modal-mask');
+            const body = document.getElementById('edit-modal-body');
+            const status = document.getElementById('edit-modal-status');
+            if (mask) mask.style.display = 'none';
+            if (body) body.innerHTML = '';
+            if (status) status.textContent = '';
+            state.editingRowid = null;
+        }
+
+        function openEditPanel(rowid, columns, rowValues) {
+            if (!state.tableName || !state.schema || !rowValues || !columns) return;
+            state.editingRowid = rowid;
+            const mask = document.getElementById('edit-modal-mask');
+            const body = document.getElementById('edit-modal-body');
+            const title = document.getElementById('edit-modal-title');
+            const status = document.getElementById('edit-modal-status');
+            if (!mask || !body || !title || !status) return;
+
+            const schemaCols = state.schema.columns || [];
+            const valueByName = {};
+            for (let i = 0; i < columns.length; i++) {
+                valueByName[columns[i]] = rowValues[i];
+            }
+
+            let html = '<form id="edit-form"><div class="insert-grid">';
+
+            schemaCols.forEach(col => {
+                if (col.name === 'rowid') return;
+                const current = valueByName[col.name];
+                html += '<div class="form-group">' +
+                    '<label>' + escapeHtml(col.name) + ' <span class="muted">(' + escapeHtml(col.type || 'TEXT') + ')</span></label>' +
+                    '<input type="text" data-col="' + escapeHtml(col.name) + '" data-type="' + escapeHtml(col.type || '') + '" value="' + escapeHtml(current == null ? '' : current) + '">' +
+                    '</div>';
+            });
+
+            html += '</div><div style="margin-top:10px;">' +
+                '<button type="submit" class="plain-btn">Save</button> ' +
+                '<button type="button" class="small-btn" id="edit-cancel">Cancel</button>' +
+                '</div></form>';
+            title.textContent = 'Edit rowid = ' + rowid;
+            status.textContent = '';
+            body.innerHTML = html;
+            mask.style.display = 'flex';
+
+            document.getElementById('edit-form').onsubmit = onEditSubmit;
+            document.getElementById('edit-cancel').onclick = () => {
+                closeEditModal();
+            };
+        }
+
+        function onEditSubmit(e) {
+            e.preventDefault();
+            if (!state.tableName || !state.editingRowid) return;
+            const status = document.getElementById('edit-modal-status');
+            const payload = {};
+
+            document.querySelectorAll('#edit-form input[data-col]').forEach(input => {
+                const col = input.dataset.col;
+                const type = input.dataset.type || '';
+                const raw = (input.value || '').trim();
+                const parsed = parseValueByType(raw, type);
+                if (parsed !== undefined) payload[col] = parsed;
+            });
+
+            put('/tables/' + encodeURIComponent(state.tableName) + '/rows/' + encodeURIComponent(state.editingRowid), payload).then(res => {
+                if (!res.success) {
+                    if (status) status.textContent = 'Update failed: ' + ((res.error && res.error.message) || 'Unknown error');
+                    return;
+                }
+                if (status) status.textContent = 'Updated.';
+                closeEditModal();
+                loadRows();
+            }).catch(err => {
+                if (status) status.textContent = 'Update failed: ' + err.message;
+            });
+        }
+
+        function onDeleteRow(rowid) {
+            if (!state.tableName) return;
+            if (!confirm('Delete rowid=' + rowid + ' ?')) return;
+            del('/tables/' + encodeURIComponent(state.tableName) + '/rows/' + encodeURIComponent(rowid)).then(res => {
+                if (!res.success) {
+                    alert('Delete failed: ' + ((res.error && res.error.message) || 'Unknown error'));
+                    return;
+                }
+                loadRows();
+            }).catch(e => alert('Delete failed: ' + e.message));
+        }
+
+        // Init
+        document.getElementById('edit-modal-close').onclick = closeEditModal;
+        document.getElementById('edit-modal-mask').onclick = (e) => {
+            if (e.target && e.target.id === 'edit-modal-mask') closeEditModal();
+        };
+        document.querySelector('.nav-item[data-view="info"]').onclick = showInfoView;
+        document.querySelector('.nav-item[data-view="sql"]').onclick = showSqlView;
+        loadTableList();
+        showSqlView();
     </script>
 </body>
 </html>
-
